@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:mbari/auth/Login.dart';
+import 'package:mbari/core/utils/FirebaseAuth.dart';
 import 'package:mbari/routing/Navigator.dart';
 // import 'package:sign_in_with_apple/sign_in_with_apple.dart'; // Uncomment for Apple Sign In
 
@@ -17,9 +18,6 @@ class _SignUpPageState extends State<SignUpPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  // final FirebaseAuth _auth = FirebaseAuth.instance;
-
-  // final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
 
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -34,55 +32,78 @@ class _SignUpPageState extends State<SignUpPage> {
   }
 
   // // Email/Password Sign Up
-  // Future<void> _signUpWithEmailPassword() async {
-  //   if (!_formKey.currentState!.validate()) return;
+  Future<void> _signUpWithEmailPassword() async {
+    if (!_formKey.currentState!.validate()) return;
 
-  //   setState(() => _isLoading = true);
+    setState(() => _isLoading = true);
 
-  //   try {
-  //     UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
-  //       email: _emailController.text.trim(),
-  //       password: _passwordController.text,
-  //     );
+    try {
+      // Create an instance of AuthService
+      final authService = AuthService();
 
-  //     // Send email verification
-  //     await userCredential.user?.sendEmailVerification();
+      // Call the correct method for registration
+      final result = await authService.registerWithEmailAndPassword(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+      );
 
-  //     if (mounted) {
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         SnackBar(
-  //           content: const Text('Account created! Please check your email for verification.'),
-  //           backgroundColor: Theme.of(context).colorScheme.primary,
-  //         ),
-  //       );
-  //       // Navigate to next page or show success
-  //     }
-  //   } on FirebaseAuthException catch (e) {
-  //     String message = 'An error occurred';
-  //     switch (e.code) {
-  //       case 'email-already-in-use':
-  //         message = 'This email is already registered';
-  //         break;
-  //       case 'weak-password':
-  //         message = 'Password is too weak';
-  //         break;
-  //       case 'invalid-email':
-  //         message = 'Invalid email address';
-  //         break;
-  //     }
+      if (result["success"] == true) {
+         setState(() => _isLoading = true);
+        // Success case
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                result["message"] ?? 'Account created successfully!',
+              ),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+            ),
+          );
+              SmoothNavigator.push(
+                            context,
+                            Login(),
+                            type: TransitionType.slideUp,
+                            duration: Duration(milliseconds: 400),
+                            curve: Curves.easeInOutCubic,
+                          );
 
-  //     if (mounted) {
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         SnackBar(
-  //           content: Text(message),
-  //           backgroundColor: Theme.of(context).colorScheme.error,
-  //         ),
-  //       );
-  //     }
-  //   } finally {
-  //     if (mounted) setState(() => _isLoading = false);
-  //   }
-  // }
+          // Navigate to next page or home
+          // Navigator.pushReplacementNamed(context, '/home');
+          // or
+          // Navigator.pushReplacementNamed(context, '/verify-email');
+        }
+      } else {
+         setState(() => _isLoading = true);
+        // Error case
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result["error"] ?? "Sign up failed"),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+       setState(() => _isLoading = true);
+      // Handle unexpected errors
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sign up failed: ${e.toString()}'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+
+
 
   // Google Sign In
   // Future<void> _signInWithGoogle() async {
@@ -385,8 +406,8 @@ class _SignUpPageState extends State<SignUpPage> {
                     width: double.infinity,
                     height: 56,
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : null,
-                      // _signUpWithEmailPassword,
+                      onPressed: _isLoading ? null : 
+                       _signUpWithEmailPassword,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: colorScheme.primary,
                         foregroundColor: colorScheme.onPrimary,

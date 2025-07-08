@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:curved_navigation_bar/curved_navigation_bar.dart';
+import 'package:mbari/core/constants/constants.dart';
 import 'package:mbari/features/deposit/deposit.dart';
 import 'package:mbari/features/profile/Profile.dart';
 
@@ -190,7 +191,7 @@ class HomePage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Good Morning, John',
+              '${user!.email}',
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: colorScheme.onSurface,
@@ -209,13 +210,8 @@ class HomePage extends StatelessWidget {
             margin: const EdgeInsets.only(right: 16),
             child: CircleAvatar(
               backgroundColor: colorScheme.primary,
-              child: Text(
-                'J',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: colorScheme.onPrimary,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              child:user!.photoURL==null?Image.asset("assets/images/logofour.png"): Image.network(user!.photoURL!)
+        
             ),
           ),
         ],
@@ -376,8 +372,9 @@ class HomePage extends StatelessWidget {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                'John Doe',
+                                user!.email!,
                                 style: theme.textTheme.bodyMedium?.copyWith(
+                                  
                                   color: colorScheme.onPrimary,
                                   fontWeight: FontWeight.w600,
                                 ),

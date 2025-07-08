@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "165656076508",
+    "project_id": "mbari-b7bb4",
+    "storage_bucket": "mbari-b7bb4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:165656076508:android:2457ee8a83d601932b5419",
+        "android_client_info": {
+          "package_name": "com.example.mbari"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCP3wbnQ4Co4HQCCa8QRumumL0v52nbnFw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
