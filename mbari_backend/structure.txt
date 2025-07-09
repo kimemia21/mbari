@@ -1,0 +1,28 @@
+// ============== PROJECT STRUCTURE ==============
+/*
+chama-app-backend/
+├── config/
+│   └── database.js
+├── models/
+│   ├── Chama.js
+│   ├── Member.js
+│   ├── Meeting.js
+│   ├── Contribution.js
+│   └── Debt.js
+├── routes/
+│   ├── chamaRoutes.js
+│   ├── memberRoutes.js
+│   ├── meetingRoutes.js
+│   └── contributionRoutes.js
+├── middleware/
+│   └── auth.js
+├── controllers/
+│   ├── chamaController.js
+│   ├── memberController.js
+│   ├── meetingController.js
+│   └── contributionController.js
+├── utils/
+│   └── helpers.js
+├── app.js
+└── server.js
+*/
