@@ -4,14 +4,8 @@ class Chama {
     static async findAll() {
         try {
             const [chamas] = await pool.execute(`
-                SELECT c.*, 
-                       COUNT(m.id) as member_count,
-                       COALESCE(SUM(co.amount), 0) as total_collected
+                SELECT c.id, c.name, c.created_at
                 FROM chamas c
-                LEFT JOIN members m ON c.id = m.chama_id AND m.is_active = TRUE
-                LEFT JOIN meetings me ON c.id = me.chama_id
-                LEFT JOIN contributions co ON me.id = co.meeting_id
-                GROUP BY c.id
             `);
             return chamas;
         } catch (error) {

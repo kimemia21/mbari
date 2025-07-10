@@ -3,7 +3,7 @@ import 'package:crypto/crypto.dart';
 import 'dart:convert';
 
 class UserPreferences {
-  static const String _keyUsername = 'user_username';
+  static const String _keyPhoneNumber = 'user_phone_number';
   static const String _keyPassword = 'user_password';
   static const String _keyIsLoggedIn = 'is_logged_in';
   static const String _keyRememberMe = 'remember_me';
@@ -21,14 +21,14 @@ class UserPreferences {
 
   UserPreferences._();
 
-  // Store username and password
+  // Store phone number and password
   Future<bool> saveCredentials({
-    required String username,
+    required String phoneNumber,
     required String password,
     bool rememberMe = false,
   }) async {
     try {
-      await _preferences?.setString(_keyUsername, username);
+      await _preferences?.setString(_keyPhoneNumber, phoneNumber);
       
       // Only store password if user wants to be remembered
       if (rememberMe) {
@@ -50,9 +50,9 @@ class UserPreferences {
     }
   }
 
-  // Get username
-  String? getUsername() {
-    return _preferences?.getString(_keyUsername);
+  // Get phone number
+  String? getPhoneNumber() {
+    return _preferences?.getString(_keyPhoneNumber);
   }
 
   // Get password (if remember me was enabled)
@@ -86,7 +86,7 @@ class UserPreferences {
   // Clear all user data (logout)
   Future<bool> clearUserData() async {
     try {
-      await _preferences?.remove(_keyUsername);
+      await _preferences?.remove(_keyPhoneNumber);
       await _preferences?.remove(_keyPassword);
       await _preferences?.setBool(_keyIsLoggedIn, false);
       await _preferences?.remove(_keyRememberMe);
@@ -126,7 +126,7 @@ class UserPreferences {
   // Get user credentials as a map
   Map<String, dynamic> getUserCredentials() {
     return {
-      'username': getUsername(),
+      'phoneNumber': getPhoneNumber(),
       'password': getPassword(),
       'isLoggedIn': isLoggedIn(),
       'rememberMe': isRememberMeEnabled(),
@@ -156,15 +156,37 @@ class UserPreferences {
 
   // Check if credentials exist
   bool hasStoredCredentials() {
-    return getUsername() != null && getPassword() != null;
+    return getPhoneNumber() != null && getPassword() != null;
   }
 
   // Validate stored credentials (check if they're not empty)
   bool validateStoredCredentials() {
-    String? username = getUsername();
+    String? phoneNumber = getPhoneNumber();
     String? password = getPassword();
-    return username != null && username.isNotEmpty && 
+    return phoneNumber != null && phoneNumber.isNotEmpty && 
            password != null && password.isNotEmpty;
+  }
+
+  // Phone number validation helper
+  bool isValidPhoneNumber(String phoneNumber) {
+    // Basic phone number validation (customize based on your requirements)
+    // This example checks for digits and common phone number patterns
+    RegExp phoneRegExp = RegExp(r'^\+?[\d\s\-\(\)]{10,}$');
+    return phoneRegExp.hasMatch(phoneNumber);
+  }
+
+  // Format phone number for display
+  String formatPhoneNumber(String phoneNumber) {
+    // Remove all non-digit characters
+    String digitsOnly = phoneNumber.replaceAll(RegExp(r'\D'), '');
+    
+    // Basic formatting for display (customize based on your locale)
+    if (digitsOnly.length == 10) {
+      return '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3, 6)}-${digitsOnly.substring(6)}';
+    } else if (digitsOnly.length == 11 && digitsOnly.startsWith('1')) {
+      return '+1 (${digitsOnly.substring(1, 4)}) ${digitsOnly.substring(4, 7)}-${digitsOnly.substring(7)}';
+    }
+    return phoneNumber; // Return original if formatting fails
   }
 }
 
@@ -197,5 +219,12 @@ extension UserPreferencesExtension on UserPreferences {
     } else {
       return '${difference.inMinutes} minutes ago';
     }
+  }
+
+  // Get formatted phone number for display
+  String getFormattedPhoneNumber() {
+    String? phoneNumber = getPhoneNumber();
+    if (phoneNumber == null) return '';
+    return formatPhoneNumber(phoneNumber);
   }
 }

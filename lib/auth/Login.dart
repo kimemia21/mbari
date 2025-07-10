@@ -2,11 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mbari/auth/Signup.dart';
 import 'package:mbari/core/constants/constants.dart';
-import 'package:mbari/core/utils/FirebaseAuth.dart';
 import 'package:mbari/core/utils/sharedPrefs.dart';
+import 'package:mbari/data/models/Member.dart';
 import 'package:mbari/features/Homepage/Homepage.dart';
 import 'package:mbari/routing/Navigator.dart';
-
 
 class Login extends StatefulWidget {
   const Login({Key? key}) : super(key: key);
@@ -17,19 +16,19 @@ class Login extends StatefulWidget {
 
 class _LoginState extends State<Login> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  final _phoneNumberController = TextEditingController();
   final _passwordController = TextEditingController();
 
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _rememberMe = false;
-  
+
   // UserPreferences instance
   UserPreferences? _userPreferences;
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _phoneNumberController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -42,10 +41,10 @@ class _LoginState extends State<Login> {
 
   Future<void> _initializeUserPreferences() async {
     _userPreferences = await UserPreferences.getInstance();
-    
+
     // Try auto-login first
     await _tryAutoLogin();
-    
+
     // Load stored credentials if available
     _loadStoredCredentials();
   }
@@ -53,31 +52,35 @@ class _LoginState extends State<Login> {
   Future<void> _tryAutoLogin() async {
     if (_userPreferences?.shouldAutoLogin() == true) {
       setState(() => _isLoading = true);
-      
+
       try {
         // Check if session is expired
         if (_userPreferences!.isSessionExpired()) {
-          
           await _userPreferences!.clearUserData();
           setState(() => _isLoading = false);
           return;
         }
 
         // Get stored credentials
-        String? email = _userPreferences!.getUsername();
+        String? phoneNumber = _userPreferences!.getPhoneNumber();
         String? password = _userPreferences!.getPassword();
 
-        if (email != null && password != null) {
+        if (phoneNumber != null && password != null) {
           // Attempt auto-login
-          final authService = AuthService();
-          final result = await authService.signInWithEmailAndPassword(
-            email,
-            password,
+          // final authService = AuthService();
+          final result = await comms.postRequest(
+            endpoint: "members/login",
+            data: {"phoneNumber": phoneNumber, "password": password},
           );
 
-          if (result["success"] == true) {
-              setState(() => _isLoading = false);
-            user = result["data"];
+          // authService.signInWithphoneNumberAndPassword(phoneNumber, password);
+
+          if (result["rsp"]["success"] == true) {
+            setState(() => _isLoading = false);
+            comms.setAuthToken(result["rsp"]["token"]);
+            member = Member.fromJson(result["rsp"]["member"]);
+
+            // user = result["data"];
             if (mounted) {
               SmoothNavigator.push(
                 context,
@@ -91,75 +94,67 @@ class _LoginState extends State<Login> {
           } else {
             // Auto-login failed, clear stored data
             await _userPreferences!.clearUserData();
-              setState(() => _isLoading = false);
+            setState(() => _isLoading = false);
           }
         }
       } catch (e) {
         // Auto-login failed, clear stored data
         await _userPreferences!.clearUserData();
-          setState(() => _isLoading = false);
-
+        setState(() => _isLoading = false);
       }
-      
+
       setState(() => _isLoading = false);
     }
   }
 
   void _loadStoredCredentials() {
     if (_userPreferences != null) {
-      String? storedEmail = _userPreferences!.getUsername();
+      String? storedphoneNumber = _userPreferences!.getPhoneNumber();
       String? storedPassword = _userPreferences!.getPassword();
       bool rememberMe = _userPreferences!.isRememberMeEnabled();
-      
-      if (storedEmail != null) {
-        _emailController.text = storedEmail;
-      } else {
-        // Keep your default email for testing
-        _emailController.text = "bobbymbogo71@gmail.com";
+
+      if (storedphoneNumber != null) {
+        _phoneNumberController.text = storedphoneNumber;
       }
-      
       if (storedPassword != null && rememberMe) {
         _passwordController.text = storedPassword;
-      } else {
-        // Keep your default password for testing
-        _passwordController.text = "1234567";
       }
-      
       setState(() {
         _rememberMe = rememberMe;
       });
-    } else {
-      // Fallback to default values
-      _emailController.text = "bobbymbogo71@gmail.com";
-      _passwordController.text = "1234567";
     }
   }
 
-  Future<void> _signInWithEmailPassword() async {
+  Future<void> _signInWithphoneNumberPassword() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
     try {
-      final authService = AuthService();
-
-      final result = await authService.signInWithEmailAndPassword(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
+      final result = await comms.postRequest(
+        endpoint: "members/login",
+        data: {
+          "phoneNumber": _phoneNumberController.text.trim(),
+          "password": _passwordController.text.trim(),
+        },
       );
 
-      if (result["success"] == true) {
-        user = result["data"];
-        
+      print(result);
+
+      if (result["rsp"]["success"] == true) {
+        comms.setAuthToken(result["rsp"]["token"]);
+        member = Member.fromJson(result["rsp"]["member"]);
+        // user = result["data"];
+
         // Save credentials if remember me is enabled
         if (_userPreferences != null) {
           await _userPreferences!.saveCredentials(
-            username: _emailController.text.trim(),
+            phoneNumber: _phoneNumberController.text.trim(),
             password: _passwordController.text.trim(),
-            rememberMe: _rememberMe,
+            rememberMe:true,
           );
         }
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -203,43 +198,48 @@ class _LoginState extends State<Login> {
   }
 
   Future<void> _handleForgotPassword() async {
-    if (_emailController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Please enter your email address first'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
-      return;
-    }
+    // if (_phoneNumberController.text.trim().isEmpty) {
+    //   ScaffoldMessenger.of(context).showSnackBar(
+    //     SnackBar(
+    //       content: Text('Please enter your phoneNumber address first'),
+    //       backgroundColor: Theme.of(context).colorScheme.error,
+    //     ),
+    //   );
+    //   return;
+    // }
 
-    try {
-      final authService = AuthService();
-      final result = await authService.sendPasswordResetEmail(
-        _emailController.text.trim(),
-      );
+    // try {
+    //   final authService = AuthService();
+    //   final result = await authService.sendPasswordResetphoneNumber(
+    //     _phoneNumberController.text.trim(),
+    //   );
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result["message"] ?? 
-              (result["success"] ? "Password reset email sent!" : result["error"])),
-            backgroundColor: result["success"] 
-              ? Theme.of(context).colorScheme.primary
-              : Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-    }
+    //   if (mounted) {
+    //     ScaffoldMessenger.of(context).showSnackBar(
+    //       SnackBar(
+    //         content: Text(
+    //           result["message"] ??
+    //               (result["success"]
+    //                   ? "Password reset phoneNumber sent!"
+    //                   : result["error"]),
+    //         ),
+    //         backgroundColor:
+    //             result["success"]
+    //                 ? Theme.of(context).colorScheme.primary
+    //                 : Theme.of(context).colorScheme.error,
+    //       ),
+    //     );
+    //   }
+    // } catch (e) {
+    //   if (mounted) {
+    //     ScaffoldMessenger.of(context).showSnackBar(
+    //       SnackBar(
+    //         content: Text('Error: ${e.toString()}'),
+    //         backgroundColor: Theme.of(context).colorScheme.error,
+    //       ),
+    //     );
+    //   }
+    // }
   }
 
   @override
@@ -282,15 +282,15 @@ class _LoginState extends State<Login> {
                   ),
                   const SizedBox(height: 40),
 
-                  // Email Field
+                  // phoneNumber Field
                   TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
+                    controller: _phoneNumberController,
+                    keyboardType: TextInputType.phone,
                     decoration: InputDecoration(
-                      labelText: 'Email',
-                      hintText: 'Enter your email',
+                      labelText: 'phoneNumber',
+                      hintText: 'Enter your phoneNumber',
                       prefixIcon: Icon(
-                        Icons.email_outlined,
+                        Icons.phone_android,
                         color: colorScheme.onSurfaceVariant,
                       ),
                       border: OutlineInputBorder(
@@ -321,12 +321,14 @@ class _LoginState extends State<Login> {
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter your email';
+                        return 'Please enter your phone number';
                       }
-                      if (!RegExp(
-                        r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                      ).hasMatch(value)) {
-                        return 'Please enter a valid email';
+                      // Kenyan phone number: starts with 07, 01, or +2547, +2541, and is 10 or 13 digits
+                      final kenyanPattern = RegExp(
+                        r'^(?:\+254|254|0)(7|1)\d{8}$',
+                      );
+                      if (!kenyanPattern.hasMatch(value)) {
+                        return 'Please enter a valid Kenyan phone number';
                       }
                       return null;
                     },
@@ -433,7 +435,8 @@ class _LoginState extends State<Login> {
                     width: double.infinity,
                     height: 56,
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : _signInWithEmailPassword,
+                      onPressed:
+                          _isLoading ? null : _signInWithphoneNumberPassword,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: colorScheme.primary,
                         foregroundColor: colorScheme.onPrimary,
@@ -446,28 +449,30 @@ class _LoginState extends State<Login> {
                         ),
                         elevation: 0,
                       ),
-                      child: _isLoading
-                          ? SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                color: colorScheme.onPrimary,
-                                strokeWidth: 2,
+                      child:
+                          _isLoading
+                              ? SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  color: colorScheme.onPrimary,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                              : Text(
+                                'Sign In',
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.onPrimary,
+                                ),
                               ),
-                            )
-                          : Text(
-                              'Sign In',
-                              style: theme.textTheme.labelLarge?.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.onPrimary,
-                              ),
-                            ),
                     ),
                   ),
                   const SizedBox(height: 24),
 
                   // Show last login time if available
-                  if (_userPreferences != null && _userPreferences!.getLastLoginTime() != null)
+                  if (_userPreferences != null &&
+                      _userPreferences!.getLastLoginTime() != null)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: Text(

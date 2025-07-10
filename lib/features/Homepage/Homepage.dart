@@ -191,7 +191,7 @@ class HomePage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '${user!.email}',
+              '${member.chamaName}',
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: colorScheme.onSurface,
@@ -210,7 +210,8 @@ class HomePage extends StatelessWidget {
             margin: const EdgeInsets.only(right: 16),
             child: CircleAvatar(
               backgroundColor: colorScheme.primary,
-              child:user!.photoURL==null?Image.asset("assets/images/logofour.png"): Image.network(user!.photoURL!)
+              child:Image.asset("assets/images/logofour.png")
+             
         
             ),
           ),
@@ -372,7 +373,7 @@ class HomePage extends StatelessWidget {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                user!.email!,
+                                member.name,
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   
                                   color: colorScheme.onPrimary,

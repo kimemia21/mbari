@@ -4,7 +4,9 @@ const chamaController = {
     async getAllChamas(req, res) {
         try {
             const chamas = await Chama.findAll();
-            res.json(chamas);
+            res.json({"success":true,
+                "data":
+                chamas});
         } catch (error) {
             res.status(500).json({ error: 'Failed to fetch chamas' });
         }

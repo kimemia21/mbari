@@ -36,7 +36,8 @@ class Member {
         try {
             const [members] = await pool.execute(`
                 SELECT m.*, c.name as chama_name, c.monthly_contribution, c.meeting_fee, 
-                       c.late_fine, c.absent_fine, c.meeting_day
+                       c.late_fine, c.absent_fine, c.meeting_day, c.created_at as chama_created_at,
+                       c.updated_at as chama_updated_at
                 FROM members m
                 JOIN chamas c ON m.chama_id = c.id
                 WHERE m.phoneNumber = ? AND m.is_active = TRUE
@@ -47,16 +48,64 @@ class Member {
         }
     }
 
+    static async findChamaById(chamaId) {
+        console.log("------------chama id is",chamaId)
+        try {
+            const [chamas] = await pool.execute(`
+                SELECT * FROM chamas WHERE id = ?
+            `, [chamaId]);
+            console.log("===========chama",chamas)
+
+            return chamas[0] || null;
+        } catch (error) {
+            throw error;
+        }
+    }
+
     static async create(memberData) {
         try {
+            console.log("----------------------registering this user",memberData);
             const { chama_id, name, phoneNumber, password } = memberData;
+            
+            // Validate required fields
+            if (!chama_id || !name || !phoneNumber || !password) {
+                throw new Error('All fields are required: chama_id, name, phoneNumber, password');
+            }
+
+            // Check if phone number already exists
+            const existingMember = await this.findByPhoneNumber(phoneNumber);
+            if (existingMember) {
+                throw new Error('Phone number already exists in the system');
+            }
+
+            // Check if chama exists
+            const chama = await this.findChamaById(chama_id);
+            if (!chama) {
+                throw new Error('Chama not found');
+            }
+
+            // REMOVED: Check if chama is active - this was causing the error
+            // The chamas table doesn't have an is_active column
+            // if (!chama.is_active) {
+            //     throw new Error('Cannot add members to an inactive chama');
+            // }
+
+            // Hash password
             const password_hash = await bcrypt.hash(password, 10);
             
+            // Create member
             const [result] = await pool.execute(`
                 INSERT INTO members (chama_id, name, phoneNumber, password_hash)
                 VALUES (?, ?, ?, ?)
             `, [chama_id, name, phoneNumber, password_hash]);
-            return result.insertId;
+            
+            return {
+                id: result.insertId,
+                chama_id,
+                name,
+                phoneNumber,
+                message: 'Member created successfully'
+            };
         } catch (error) {
             throw error;
         }
@@ -83,6 +132,39 @@ class Member {
 
     static async validatePassword(hashedPassword, password) {
         return await bcrypt.compare(password, hashedPassword);
+    }
+
+    // Additional utility methods for better error handling
+    static async isPhoneNumberUnique(phoneNumber, excludeMemberId = null) {
+        try {
+            let query = 'SELECT id FROM members WHERE phoneNumber = ? AND is_active = TRUE';
+            let params = [phoneNumber];
+            
+            if (excludeMemberId) {
+                query += ' AND id != ?';
+                params.push(excludeMemberId);
+            }
+            
+            const [members] = await pool.execute(query, params);
+            return members.length === 0;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    static async getChamaDetails(chamaId) {
+        try {
+            // UPDATED: Removed is_active from SELECT since it doesn't exist in the table
+            const [chamas] = await pool.execute(`
+                SELECT id, name, monthly_contribution, meeting_fee, 
+                       late_fine, absent_fine, meeting_day, created_at
+                FROM chamas 
+                WHERE id = ?
+            `, [chamaId]);
+            return chamas[0] || null;
+        } catch (error) {
+            throw error;
+        }
     }
 }
 

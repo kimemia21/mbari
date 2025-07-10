@@ -14,6 +14,7 @@ app.use(express.json());
 
 // Routes
 app.use('/api/chamas', chamaRoutes);
+
 app.use('/api/members', memberRoutes);
 
 // Health check endpoint

@@ -10,3 +10,10 @@ router.get('/profile', authenticateToken, memberController.getProfile);
 router.get('/dashboard', authenticateToken, memberController.getDashboard);
 
 module.exports = router;
+
+
+
+
+
+
+
