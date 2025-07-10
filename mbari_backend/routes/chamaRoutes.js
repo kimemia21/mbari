@@ -4,7 +4,7 @@ const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.get('/', chamaController.getAllChamas);
+router.get('/',authenticateToken, chamaController.getAllChamas);
 router.get('/:id', chamaController.getChamaById);
 router.post('/', authenticateToken, chamaController.createChama);
 router.put('/:id', authenticateToken, chamaController.updateChama);

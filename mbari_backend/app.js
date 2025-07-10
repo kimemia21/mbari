@@ -5,6 +5,16 @@ const { initializeDatabase } = require('./config/database');
 // Route imports
 const chamaRoutes = require('./routes/chamaRoutes');
 const memberRoutes = require('./routes/memberRoutes');
+const contributionRoutes = require('./routes/contributions');
+const meetingFeeRoutes = require('./routes/meetingFees');
+const fineRoutes = require('./routes/fines');
+const memberDebtRoutes = require('./routes/memberDebts');
+const memberDepositRoutes = require('./routes/memberDeposits');
+const paymentTypeRoutes = require('./routes/paymentTypes');
+const paybillRoutes = require('./routes/paybills');
+const meetings = require("./routes/meeting")
+
+
 
 const app = express();
 
@@ -16,6 +26,16 @@ app.use(express.json());
 app.use('/api/chamas', chamaRoutes);
 
 app.use('/api/members', memberRoutes);
+app.use('/api/contributions', contributionRoutes);
+app.use('/api/meeting-fees', meetingFeeRoutes);
+app.use('/api/fines', fineRoutes);
+app.use('/api/member-debts', memberDebtRoutes);
+app.use('/api/member-deposits', memberDepositRoutes);
+app.use('/api/payment-types', paymentTypeRoutes);
+app.use('/api/paybills', paybillRoutes);
+app.use("/api/meeting", meetings)
+
+
 
 // Health check endpoint
 app.get('/health', (req, res) => {

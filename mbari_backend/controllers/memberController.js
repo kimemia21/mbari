@@ -1,3 +1,4 @@
+const { MemberDeposit } = require('../models/financialModels');
 const Member = require('../models/Member');
 const jwt = require('jsonwebtoken');
 
@@ -108,6 +109,9 @@ class membercontroller {
                 { expiresIn: '24h' }
             );
 
+
+            const  deposits  = await MemberDeposit.findByMemberId(member.id, member.chama_id);
+
             // Return complete member data matching Flutter model requirements
             res.json({
                 success: true,
@@ -127,7 +131,8 @@ class membercontroller {
                     meeting_fee: member.meeting_fee,
                     late_fine: member.late_fine,
                     absent_fine: member.absent_fine,
-                    meeting_day: member.meeting_day
+                    meeting_day: member.meeting_day,
+                    deposits:deposits.data
                 }
             });
         } catch (error) {

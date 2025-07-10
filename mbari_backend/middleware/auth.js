@@ -1,20 +1,49 @@
 const jwt = require('jsonwebtoken');
+const { pool } = require('../config/database');
 
-const authenticateToken = (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-
+const authenticateToken = async (req, res, next) => {
+  try {
+    // Get token from header
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    console.log(`token ${token}`);
+    
     if (!token) {
-        return res.status(401).json({ error: 'Access token required' });
+      return res.status(401).json({
+        success: false,
+        message: 'No authentication token, access denied'
+      });
+    }
+    
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    console.log(decoded);
+    
+    // Check if user exists and token is valid
+    const query = 'SELECT * FROM members WHERE id = ?';
+    const result = await pool.execute(query, [decoded.id]);
+    
+    if (result[0].length === 0) {
+      return res.status(401).json({
+        success: false,
+        message: 'Member not found or inactive'
+      });
     }
 
-    jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key', (err, user) => {
-        if (err) {
-            return res.status(403).json({ error: 'Invalid token' });
-        }
-        req.user = user;
-        next();
+    console.log(`results ${result}`)
+    
+    // Add user info to request
+    req.user = result[0][0];
+    console.log(req.user)
+
+    next();
+  } catch (error) {
+    console.error('Auth middleware error:', error);
+    res.status(401).json({
+      success: false,
+      message: 'Token is invalid',
+      error: error.message
     });
+  }
 };
 
 module.exports = { authenticateToken };
