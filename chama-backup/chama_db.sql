@@ -275,9 +275,12 @@ CREATE TABLE `meeting_financials` (
   CONSTRAINT `meeting_financials_ibfk_1` FOREIGN KEY (`meeting_id`) REFERENCES `meetings` (`id`),
   CONSTRAINT `meeting_financials_ibfk_2` FOREIGN KEY (`chama_id`) REFERENCES `chamas` (`id`),
   CONSTRAINT `meeting_financials_ibfk_3` FOREIGN KEY (`finalized_by`) REFERENCES `members` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 /*Data for the table `meeting_financials` */
+
+insert  into `meeting_financials`(`id`,`meeting_id`,`chama_id`,`total_contributions_expected`,`total_contributions_collected`,`contributions_count_paid`,`contributions_count_pending`,`total_meeting_fees_expected`,`total_meeting_fees_collected`,`meeting_fees_count_paid`,`meeting_fees_count_pending`,`total_fines_expected`,`total_fines_collected`,`fines_count_paid`,`fines_count_pending`,`total_debts_outstanding`,`total_debts_paid`,`debts_count_outstanding`,`debts_count_paid`,`total_cash_collected`,`total_mobile_collected`,`grand_total_collected`,`members_present`,`members_late`,`members_absent`,`total_members`,`is_finalized`,`finalized_by`,`finalized_at`,`created_at`,`updated_at`) values 
+(1,3,1,0.00,0.00,0,0,0.00,0.00,0,0,0.00,0.00,0,0,0.00,0.00,0,0,0.00,0.00,0.00,0,0,0,2,0,NULL,NULL,'2025-07-10 16:20:51','2025-07-10 16:20:51');
 
 /*Table structure for table `meetings` */
 
@@ -296,9 +299,12 @@ CREATE TABLE `meetings` (
   UNIQUE KEY `unique_chama_meeting` (`chama_id`,`meeting_date`),
   CONSTRAINT `fk_meetings_chama` FOREIGN KEY (`chama_id`) REFERENCES `chamas` (`id`),
   CONSTRAINT `meetings_ibfk_1` FOREIGN KEY (`chama_id`) REFERENCES `chamas` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 /*Data for the table `meetings` */
+
+insert  into `meetings`(`id`,`chama_id`,`meeting_date`,`venue`,`agenda`,`status`,`created_at`,`updated_at`) values 
+(3,1,'2023-10-21','Conference Room A','Monthly strategy meeting','scheduled','2025-07-10 16:20:51','2025-07-10 16:20:51');
 
 /*Table structure for table `member_debts` */
 
@@ -360,6 +366,7 @@ CREATE TABLE `members` (
   `joined_date` date DEFAULT curdate(),
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `status` enum('active','inactive') DEFAULT 'active',
   PRIMARY KEY (`id`),
   UNIQUE KEY `phonenumber` (`phoneNumber`),
   UNIQUE KEY `phoneNumber_2` (`phoneNumber`),
@@ -369,9 +376,9 @@ CREATE TABLE `members` (
 
 /*Data for the table `members` */
 
-insert  into `members`(`id`,`chama_id`,`name`,`phoneNumber`,`password_hash`,`is_active`,`joined_date`,`created_at`,`updated_at`) values 
-(2,1,'davidkimemiathuku','0769922984','$2b$10$eN3scLFxrIHNn8xhfr9RFeHfrYYIBpHYHYi.BFCKJ6g3cL.9WaoBG',1,'2025-07-10','2025-07-10 09:45:25','2025-07-10 09:45:25'),
-(3,1,'GraceNgere','0796679887','$2b$10$kUjqbh.7NINi2MIF/.1R5ubvMp4wPTEP5GJUDidc/UqR8Zrc2Fiau',1,'2025-07-10','2025-07-10 10:17:14','2025-07-10 10:17:14');
+insert  into `members`(`id`,`chama_id`,`name`,`phoneNumber`,`password_hash`,`is_active`,`joined_date`,`created_at`,`updated_at`,`status`) values 
+(2,1,'davidkimemiathuku','0769922984','$2b$10$eN3scLFxrIHNn8xhfr9RFeHfrYYIBpHYHYi.BFCKJ6g3cL.9WaoBG',1,'2025-07-10','2025-07-10 09:45:25','2025-07-10 09:45:25','active'),
+(3,1,'GraceNgere','0796679887','$2b$10$kUjqbh.7NINi2MIF/.1R5ubvMp4wPTEP5GJUDidc/UqR8Zrc2Fiau',1,'2025-07-10','2025-07-10 10:17:14','2025-07-10 10:17:14','active');
 
 /*Table structure for table `paybills` */
 

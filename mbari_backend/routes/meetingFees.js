@@ -3,6 +3,9 @@
 const express = require('express');
 const router = express.Router();
 const meetingFeeController = require('../controllers/meetingFeeController');
+const { authenticateToken } = require('../middleware/auth');
+
+router.use(authenticateToken)
 
 router.get('/', meetingFeeController.getAll);
 router.get('/:id', meetingFeeController.getById);

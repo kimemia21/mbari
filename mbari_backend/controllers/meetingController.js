@@ -66,7 +66,9 @@ class MeetingController {
 
     static async createMeeting(req, res) {
         try {
-            const meetingData = req.body;
+            const chamaId = req.user.chama_id;
+            const meetingData = { ...req.body, chama_id: chamaId };
+
             const meetingId = await Meeting.create(meetingData);
             
             res.status(201).json({
