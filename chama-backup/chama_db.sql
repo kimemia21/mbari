@@ -1,0 +1,654 @@
+/*
+SQLyog Community v13.1.6 (64 bit)
+MySQL - 10.4.32-MariaDB : Database - mbari_app
+*********************************************************************
+*/
+
+/*!40101 SET NAMES utf8 */;
+
+/*!40101 SET SQL_MODE=''*/;
+
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+CREATE DATABASE /*!32312 IF NOT EXISTS*/`mbari_app` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci */;
+
+USE `mbari_app`;
+
+/*Table structure for table `attendance` */
+
+DROP TABLE IF EXISTS `attendance`;
+
+CREATE TABLE `attendance` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `member_id` int(11) NOT NULL,
+  `meeting_id` int(11) NOT NULL,
+  `status` enum('present','late','absent') DEFAULT 'present',
+  `arrival_time` time DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_member_meeting` (`member_id`,`meeting_id`),
+  KEY `meeting_id` (`meeting_id`),
+  CONSTRAINT `attendance_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `members` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `attendance_ibfk_2` FOREIGN KEY (`meeting_id`) REFERENCES `meetings` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+/*Data for the table `attendance` */
+
+/*Table structure for table `banks` */
+
+DROP TABLE IF EXISTS `banks`;
+
+CREATE TABLE `banks` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  `code` varchar(10) DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT 1,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+/*Data for the table `banks` */
+
+/*Table structure for table `chamas` */
+
+DROP TABLE IF EXISTS `chamas`;
+
+CREATE TABLE `chamas` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `monthly_contribution` decimal(10,2) NOT NULL,
+  `meeting_fee` decimal(10,2) DEFAULT 0.00,
+  `late_fine` decimal(10,2) DEFAULT 0.00,
+  `absent_fine` decimal(10,2) DEFAULT 0.00,
+  `meeting_day` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `rules` mediumtext DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+/*Data for the table `chamas` */
+
+insert  into `chamas`(`id`,`name`,`monthly_contribution`,`meeting_fee`,`late_fine`,`absent_fine`,`meeting_day`,`created_at`,`updated_at`,`rules`) values 
+(1,'mbogo_family',500.00,100.00,50.00,100.00,'first sunday of every month','2025-07-09 05:51:37','2025-07-09 05:51:37','MBOGO FAMILY CHAMA RULES AND REGULATIONS\r\n\r\nFINANCIAL CONTRIBUTIONS:\r\n1. Monthly Contribution: Every member must contribute KSH 500 on or before the monthly meeting\r\n2. Meeting Fee: KSH 100 attendance fee for every meeting\r\n3. Late Fine: KSH 50 penalty for arriving late to meetings\r\n4. Absence Fine: KSH 100 penalty for missing a meeting without prior notice\r\n\r\nMEETING GUIDELINES:\r\n- Meetings are held on the first Sunday of every month\r\n- Members must arrive on time to avoid late fines\r\n- Advance notice of absence (24 hours minimum) may waive the absence fine\r\n- All financial contributions must be made \r\n\r\nGENERAL CONDUCT:\r\n- Respect all members and maintain confidentiality\r\n- Active participation in discussions is encouraged\r\n\r\n\r\nEMERGENCY SUPPORT:\r\n- Emergency fund available for members facing genuine hardships\r\n- Medical emergency support available with proper documentation\r\n- Family emergency support for immediate family members\r\n\r\nDISCIPLINE AND PENALTIES:\r\n- All fines must be paid before next meeting\r\n\r\nAMENDMENTS:\r\n- Rule changes require 80% member approval\r\n- Annual review of rules and regulations\r\n- Suggestions for improvements are welcome\r\n\r\nRemember: Unity, Trust, and Prosperity for all members!');
+
+/*Table structure for table `contributions` */
+
+DROP TABLE IF EXISTS `contributions`;
+
+CREATE TABLE `contributions` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `member_id` int(11) NOT NULL,
+  `meeting_id` int(11) NOT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `contribution_type` enum('monthly','meeting_fee','fine','extra') DEFAULT 'monthly',
+  `payment_method` varchar(50) DEFAULT 'cash',
+  `paid_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `member_id` (`member_id`),
+  KEY `meeting_id` (`meeting_id`),
+  CONSTRAINT `contributions_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `members` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `contributions_ibfk_2` FOREIGN KEY (`meeting_id`) REFERENCES `meetings` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+/*Data for the table `contributions` */
+
+/*Table structure for table `emergency_fund_contributions` */
+
+DROP TABLE IF EXISTS `emergency_fund_contributions`;
+
+CREATE TABLE `emergency_fund_contributions` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `emergency_fund_id` int(11) NOT NULL,
+  `member_id` int(11) NOT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `payment_method_id` int(11) NOT NULL,
+  `payment_reference` varchar(100) DEFAULT NULL,
+  `payment_date` datetime DEFAULT NULL,
+  `status` enum('pending','paid','failed') DEFAULT 'pending',
+  `deducted_from_deposits` tinyint(1) DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_member_fund` (`emergency_fund_id`,`member_id`),
+  KEY `member_id` (`member_id`),
+  KEY `payment_method_id` (`payment_method_id`),
+  CONSTRAINT `emergency_fund_contributions_ibfk_1` FOREIGN KEY (`emergency_fund_id`) REFERENCES `emergency_funds` (`id`),
+  CONSTRAINT `emergency_fund_contributions_ibfk_2` FOREIGN KEY (`member_id`) REFERENCES `members` (`id`),
+  CONSTRAINT `emergency_fund_contributions_ibfk_3` FOREIGN KEY (`payment_method_id`) REFERENCES `payment_types` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+/*Data for the table `emergency_fund_contributions` */
+
+/*Table structure for table `emergency_funds` */
+
+DROP TABLE IF EXISTS `emergency_funds`;
+
+CREATE TABLE `emergency_funds` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `chama_id` int(11) NOT NULL,
+  `fund_name` varchar(100) NOT NULL,
+  `target_amount` decimal(15,2) NOT NULL,
+  `current_amount` decimal(15,2) DEFAULT 0.00,
+  `per_member_contribution` decimal(10,2) NOT NULL,
+  `status` enum('active','completed','cancelled') DEFAULT 'active',
+  `purpose` text NOT NULL,
+  `created_by` int(11) NOT NULL,
+  `approved_meeting_id` int(11) DEFAULT NULL,
+  `target_date` date DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `chama_id` (`chama_id`),
+  KEY `created_by` (`created_by`),
+  KEY `approved_meeting_id` (`approved_meeting_id`),
+  CONSTRAINT `emergency_funds_ibfk_1` FOREIGN KEY (`chama_id`) REFERENCES `chamas` (`id`),
+  CONSTRAINT `emergency_funds_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `members` (`id`),
+  CONSTRAINT `emergency_funds_ibfk_3` FOREIGN KEY (`approved_meeting_id`) REFERENCES `meetings` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+/*Data for the table `emergency_funds` */
+
+/*Table structure for table `fines` */
+
+DROP TABLE IF EXISTS `fines`;
+
+CREATE TABLE `fines` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `member_id` int(11) NOT NULL,
+  `meeting_id` int(11) NOT NULL,
+  `fine_type` enum('late','absent') NOT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `payment_method_id` int(11) NOT NULL,
+  `paybill_id` int(11) NOT NULL,
+  `payment_reference` varchar(100) DEFAULT NULL,
+  `payment_date` datetime DEFAULT NULL,
+  `status` enum('pending','paid','failed','waived') DEFAULT 'pending',
+  `reason` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `member_id` (`member_id`),
+  KEY `meeting_id` (`meeting_id`),
+  KEY `payment_method_id` (`payment_method_id`),
+  KEY `paybill_id` (`paybill_id`),
+  CONSTRAINT `fines_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `members` (`id`),
+  CONSTRAINT `fines_ibfk_2` FOREIGN KEY (`meeting_id`) REFERENCES `meetings` (`id`),
+  CONSTRAINT `fines_ibfk_3` FOREIGN KEY (`payment_method_id`) REFERENCES `payment_types` (`id`),
+  CONSTRAINT `fines_ibfk_4` FOREIGN KEY (`paybill_id`) REFERENCES `paybills` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+/*Data for the table `fines` */
+
+/*Table structure for table `meeting_attendance` */
+
+DROP TABLE IF EXISTS `meeting_attendance`;
+
+CREATE TABLE `meeting_attendance` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `meeting_id` int(11) NOT NULL,
+  `member_id` int(11) NOT NULL,
+  `attendance_status` enum('present','late','absent') DEFAULT 'absent',
+  `arrival_time` datetime DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_member_meeting` (`meeting_id`,`member_id`),
+  KEY `member_id` (`member_id`),
+  CONSTRAINT `meeting_attendance_ibfk_1` FOREIGN KEY (`meeting_id`) REFERENCES `meetings` (`id`),
+  CONSTRAINT `meeting_attendance_ibfk_2` FOREIGN KEY (`member_id`) REFERENCES `members` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+/*Data for the table `meeting_attendance` */
+
+/*Table structure for table `meeting_fees` */
+
+DROP TABLE IF EXISTS `meeting_fees`;
+
+CREATE TABLE `meeting_fees` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `member_id` int(11) NOT NULL,
+  `meeting_id` int(11) NOT NULL,
+  `amount` decimal(10,2) NOT NULL DEFAULT 100.00,
+  `payment_method_id` int(11) NOT NULL,
+  `payment_date` datetime DEFAULT NULL,
+  `status` enum('pending','paid') DEFAULT 'pending',
+  `collected_by` int(11) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `member_id` (`member_id`),
+  KEY `meeting_id` (`meeting_id`),
+  KEY `payment_method_id` (`payment_method_id`),
+  KEY `collected_by` (`collected_by`),
+  CONSTRAINT `meeting_fees_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `members` (`id`),
+  CONSTRAINT `meeting_fees_ibfk_2` FOREIGN KEY (`meeting_id`) REFERENCES `meetings` (`id`),
+  CONSTRAINT `meeting_fees_ibfk_3` FOREIGN KEY (`payment_method_id`) REFERENCES `payment_types` (`id`),
+  CONSTRAINT `meeting_fees_ibfk_4` FOREIGN KEY (`collected_by`) REFERENCES `members` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+/*Data for the table `meeting_fees` */
+
+/*Table structure for table `meeting_financials` */
+
+DROP TABLE IF EXISTS `meeting_financials`;
+
+CREATE TABLE `meeting_financials` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `meeting_id` int(11) NOT NULL,
+  `chama_id` int(11) NOT NULL,
+  `total_contributions_expected` decimal(15,2) DEFAULT 0.00,
+  `total_contributions_collected` decimal(15,2) DEFAULT 0.00,
+  `contributions_count_paid` int(11) DEFAULT 0,
+  `contributions_count_pending` int(11) DEFAULT 0,
+  `total_meeting_fees_expected` decimal(15,2) DEFAULT 0.00,
+  `total_meeting_fees_collected` decimal(15,2) DEFAULT 0.00,
+  `meeting_fees_count_paid` int(11) DEFAULT 0,
+  `meeting_fees_count_pending` int(11) DEFAULT 0,
+  `total_fines_expected` decimal(15,2) DEFAULT 0.00,
+  `total_fines_collected` decimal(15,2) DEFAULT 0.00,
+  `fines_count_paid` int(11) DEFAULT 0,
+  `fines_count_pending` int(11) DEFAULT 0,
+  `total_debts_outstanding` decimal(15,2) DEFAULT 0.00,
+  `total_debts_paid` decimal(15,2) DEFAULT 0.00,
+  `debts_count_outstanding` int(11) DEFAULT 0,
+  `debts_count_paid` int(11) DEFAULT 0,
+  `total_cash_collected` decimal(15,2) DEFAULT 0.00,
+  `total_mobile_collected` decimal(15,2) DEFAULT 0.00,
+  `grand_total_collected` decimal(15,2) DEFAULT 0.00,
+  `members_present` int(11) DEFAULT 0,
+  `members_late` int(11) DEFAULT 0,
+  `members_absent` int(11) DEFAULT 0,
+  `total_members` int(11) DEFAULT 0,
+  `is_finalized` tinyint(1) DEFAULT 0,
+  `finalized_by` int(11) DEFAULT NULL,
+  `finalized_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_meeting_financials` (`meeting_id`),
+  KEY `chama_id` (`chama_id`),
+  KEY `finalized_by` (`finalized_by`),
+  CONSTRAINT `meeting_financials_ibfk_1` FOREIGN KEY (`meeting_id`) REFERENCES `meetings` (`id`),
+  CONSTRAINT `meeting_financials_ibfk_2` FOREIGN KEY (`chama_id`) REFERENCES `chamas` (`id`),
+  CONSTRAINT `meeting_financials_ibfk_3` FOREIGN KEY (`finalized_by`) REFERENCES `members` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+/*Data for the table `meeting_financials` */
+
+/*Table structure for table `meetings` */
+
+DROP TABLE IF EXISTS `meetings`;
+
+CREATE TABLE `meetings` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `chama_id` int(11) NOT NULL,
+  `meeting_date` date NOT NULL,
+  `venue` varchar(255) DEFAULT NULL,
+  `agenda` text DEFAULT NULL,
+  `status` enum('scheduled','completed','cancelled') DEFAULT 'scheduled',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_chama_meeting` (`chama_id`,`meeting_date`),
+  CONSTRAINT `fk_meetings_chama` FOREIGN KEY (`chama_id`) REFERENCES `chamas` (`id`),
+  CONSTRAINT `meetings_ibfk_1` FOREIGN KEY (`chama_id`) REFERENCES `chamas` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+/*Data for the table `meetings` */
+
+/*Table structure for table `member_debts` */
+
+DROP TABLE IF EXISTS `member_debts`;
+
+CREATE TABLE `member_debts` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `member_id` int(11) NOT NULL,
+  `meeting_id` int(11) NOT NULL,
+  `debt_type` enum('monthly_contribution','meeting_fee','late_fine','absent_fine') NOT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `is_paid` tinyint(1) DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `paid_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `member_id` (`member_id`),
+  KEY `meeting_id` (`meeting_id`),
+  CONSTRAINT `member_debts_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `members` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `member_debts_ibfk_2` FOREIGN KEY (`meeting_id`) REFERENCES `meetings` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+/*Data for the table `member_debts` */
+
+/*Table structure for table `member_deposits` */
+
+DROP TABLE IF EXISTS `member_deposits`;
+
+CREATE TABLE `member_deposits` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `member_id` int(11) NOT NULL,
+  `chama_id` int(11) NOT NULL,
+  `total_contributions` decimal(15,2) DEFAULT 0.00,
+  `total_meeting_fees` decimal(15,2) DEFAULT 0.00,
+  `total_fines` decimal(15,2) DEFAULT 0.00,
+  `investment_share` decimal(15,2) DEFAULT 0.00,
+  `emergency_fund_contribution` decimal(15,2) DEFAULT 0.00,
+  `last_updated` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_member_chama` (`member_id`,`chama_id`),
+  KEY `chama_id` (`chama_id`),
+  CONSTRAINT `member_deposits_ibfk_1` FOREIGN KEY (`member_id`) REFERENCES `members` (`id`),
+  CONSTRAINT `member_deposits_ibfk_2` FOREIGN KEY (`chama_id`) REFERENCES `chamas` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+/*Data for the table `member_deposits` */
+
+/*Table structure for table `members` */
+
+DROP TABLE IF EXISTS `members`;
+
+CREATE TABLE `members` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `chama_id` int(11) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `phoneNumber` varchar(20) NOT NULL,
+  `password_hash` varchar(255) NOT NULL,
+  `is_active` tinyint(1) DEFAULT 1,
+  `joined_date` date DEFAULT curdate(),
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `phonenumber` (`phoneNumber`),
+  UNIQUE KEY `phoneNumber_2` (`phoneNumber`),
+  KEY `chama_id` (`chama_id`),
+  CONSTRAINT `members_ibfk_1` FOREIGN KEY (`chama_id`) REFERENCES `chamas` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+/*Data for the table `members` */
+
+insert  into `members`(`id`,`chama_id`,`name`,`phoneNumber`,`password_hash`,`is_active`,`joined_date`,`created_at`,`updated_at`) values 
+(2,1,'davidkimemiathuku','0769922984','$2b$10$eN3scLFxrIHNn8xhfr9RFeHfrYYIBpHYHYi.BFCKJ6g3cL.9WaoBG',1,'2025-07-10','2025-07-10 09:45:25','2025-07-10 09:45:25'),
+(3,1,'GraceNgere','0796679887','$2b$10$kUjqbh.7NINi2MIF/.1R5ubvMp4wPTEP5GJUDidc/UqR8Zrc2Fiau',1,'2025-07-10','2025-07-10 10:17:14','2025-07-10 10:17:14');
+
+/*Table structure for table `paybills` */
+
+DROP TABLE IF EXISTS `paybills`;
+
+CREATE TABLE `paybills` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `chama_id` int(11) NOT NULL,
+  `provider` varchar(50) NOT NULL,
+  `paybill_number` varchar(20) NOT NULL,
+  `account_number` varchar(50) DEFAULT NULL,
+  `business_name` varchar(100) DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `chama_id` (`chama_id`),
+  CONSTRAINT `paybills_ibfk_1` FOREIGN KEY (`chama_id`) REFERENCES `chamas` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+/*Data for the table `paybills` */
+
+/*Table structure for table `payment_types` */
+
+DROP TABLE IF EXISTS `payment_types`;
+
+CREATE TABLE `payment_types` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(50) NOT NULL,
+  `description` text DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT 1,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+/*Data for the table `payment_types` */
+
+insert  into `payment_types`(`id`,`name`,`description`,`is_active`) values 
+(1,'cash','Cash payments',1),
+(2,'mobile','Mobile money payments (M-Pesa, Airtel Money)',1),
+(3,'bank','Bank transfers',1);
+
+/* Trigger structure for table `fines` */
+
+DELIMITER $$
+
+/*!50003 DROP TRIGGER*//*!50032 IF EXISTS */ /*!50003 `create_fine_debt` */$$
+
+/*!50003 CREATE */ /*!50017 DEFINER = 'root'@'localhost' */ /*!50003 TRIGGER `create_fine_debt` AFTER INSERT ON `fines` FOR EACH ROW 
+BEGIN
+    IF NEW.status = 'pending' AND NEW.payment_date IS NULL THEN
+        INSERT INTO member_debts (member_id, meeting_id, debt_type, amount, original_due_date, description)
+        SELECT NEW.member_id, NEW.meeting_id, 'fine', NEW.amount,
+               DATE(m.meeting_date),
+               CONCAT(UPPER(NEW.fine_type), ' fine of KES ', NEW.amount, ' for meeting on ', DATE(m.meeting_date))
+        FROM meetings m WHERE m.id = NEW.meeting_id;
+    END IF;
+END */$$
+
+
+DELIMITER ;
+
+/* Trigger structure for table `fines` */
+
+DELIMITER $$
+
+/*!50003 DROP TRIGGER*//*!50032 IF EXISTS */ /*!50003 `update_member_deposits_fine` */$$
+
+/*!50003 CREATE */ /*!50017 DEFINER = 'root'@'localhost' */ /*!50003 TRIGGER `update_member_deposits_fine` AFTER UPDATE ON `fines` FOR EACH ROW 
+BEGIN
+    IF NEW.status = 'paid' AND OLD.status != 'paid' THEN
+        INSERT INTO member_deposits (member_id, chama_id, total_fines)
+        SELECT NEW.member_id, m.chama_id, NEW.amount
+        FROM meetings m WHERE m.id = NEW.meeting_id
+        ON DUPLICATE KEY UPDATE 
+            total_fines = total_fines + NEW.amount,
+            last_updated = CURRENT_TIMESTAMP;
+    END IF;
+END */$$
+
+
+DELIMITER ;
+
+/* Trigger structure for table `fines` */
+
+DELIMITER $$
+
+/*!50003 DROP TRIGGER*//*!50032 IF EXISTS */ /*!50003 `update_meeting_financials_fines` */$$
+
+/*!50003 CREATE */ /*!50017 DEFINER = 'root'@'localhost' */ /*!50003 TRIGGER `update_meeting_financials_fines` AFTER UPDATE ON `fines` FOR EACH ROW 
+BEGIN
+    IF NEW.status != OLD.status THEN
+        UPDATE meeting_financials mf
+        SET 
+            total_fines_expected = (
+                SELECT COALESCE(SUM(CASE 
+                    WHEN ma.attendance_status = 'late' THEN 50 
+                    WHEN ma.attendance_status = 'absent' THEN 100 
+                    ELSE 0 
+                END), 0)
+                FROM meeting_attendance ma 
+                WHERE ma.meeting_id = NEW.meeting_id
+            ),
+            total_fines_collected = (
+                SELECT COALESCE(SUM(amount), 0) FROM fines 
+                WHERE meeting_id = NEW.meeting_id AND status = 'paid'
+            ),
+            fines_count_paid = (
+                SELECT COUNT(*) FROM fines 
+                WHERE meeting_id = NEW.meeting_id AND status = 'paid'
+            ),
+            fines_count_pending = (
+                SELECT COUNT(*) FROM fines 
+                WHERE meeting_id = NEW.meeting_id AND status = 'pending'
+            ),
+            total_mobile_collected = (
+                SELECT COALESCE(SUM(c.amount), 0) + COALESCE(SUM(f.amount), 0)
+                FROM contributions c
+                LEFT JOIN fines f ON f.meeting_id = c.meeting_id AND f.status = 'paid'
+                WHERE c.meeting_id = NEW.meeting_id AND c.status = 'paid'
+            ),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE mf.meeting_id = NEW.meeting_id;
+    END IF;
+END */$$
+
+
+DELIMITER ;
+
+/* Trigger structure for table `meeting_attendance` */
+
+DELIMITER $$
+
+/*!50003 DROP TRIGGER*//*!50032 IF EXISTS */ /*!50003 `update_meeting_financials_attendance` */$$
+
+/*!50003 CREATE */ /*!50017 DEFINER = 'root'@'localhost' */ /*!50003 TRIGGER `update_meeting_financials_attendance` AFTER UPDATE ON `meeting_attendance` FOR EACH ROW 
+BEGIN
+    UPDATE meeting_financials mf
+    SET 
+        members_present = (
+            SELECT COUNT(*) FROM meeting_attendance 
+            WHERE meeting_id = NEW.meeting_id AND attendance_status = 'present'
+        ),
+        members_late = (
+            SELECT COUNT(*) FROM meeting_attendance 
+            WHERE meeting_id = NEW.meeting_id AND attendance_status = 'late'
+        ),
+        members_absent = (
+            SELECT COUNT(*) FROM meeting_attendance 
+            WHERE meeting_id = NEW.meeting_id AND attendance_status = 'absent'
+        ),
+        total_fines_expected = (
+            SELECT COALESCE(SUM(CASE 
+                WHEN ma.attendance_status = 'late' THEN 50 
+                WHEN ma.attendance_status = 'absent' THEN 100 
+                ELSE 0 
+            END), 0)
+            FROM meeting_attendance ma 
+            WHERE ma.meeting_id = NEW.meeting_id
+        ),
+        updated_at = CURRENT_TIMESTAMP
+    WHERE mf.meeting_id = NEW.meeting_id;
+END */$$
+
+
+DELIMITER ;
+
+/* Trigger structure for table `meeting_fees` */
+
+DELIMITER $$
+
+/*!50003 DROP TRIGGER*//*!50032 IF EXISTS */ /*!50003 `create_meeting_fee_debt` */$$
+
+/*!50003 CREATE */ /*!50017 DEFINER = 'root'@'localhost' */ /*!50003 TRIGGER `create_meeting_fee_debt` AFTER INSERT ON `meeting_fees` FOR EACH ROW 
+BEGIN
+    IF NEW.status = 'pending' AND NEW.payment_date IS NULL THEN
+        INSERT INTO member_debts (member_id, meeting_id, debt_type, amount, original_due_date, description)
+        SELECT NEW.member_id, NEW.meeting_id, 'meeting_fee', NEW.amount,
+               DATE(m.meeting_date),
+               CONCAT('Meeting fee of KES ', NEW.amount, ' for meeting on ', DATE(m.meeting_date))
+        FROM meetings m WHERE m.id = NEW.meeting_id;
+    END IF;
+END */$$
+
+
+DELIMITER ;
+
+/* Trigger structure for table `meeting_fees` */
+
+DELIMITER $$
+
+/*!50003 DROP TRIGGER*//*!50032 IF EXISTS */ /*!50003 `update_member_deposits_meeting_fee` */$$
+
+/*!50003 CREATE */ /*!50017 DEFINER = 'root'@'localhost' */ /*!50003 TRIGGER `update_member_deposits_meeting_fee` AFTER UPDATE ON `meeting_fees` FOR EACH ROW 
+BEGIN
+    IF NEW.status = 'paid' AND OLD.status != 'paid' THEN
+        INSERT INTO member_deposits (member_id, chama_id, total_meeting_fees)
+        SELECT NEW.member_id, m.chama_id, NEW.amount
+        FROM meetings m WHERE m.id = NEW.meeting_id
+        ON DUPLICATE KEY UPDATE 
+            total_meeting_fees = total_meeting_fees + NEW.amount,
+            last_updated = CURRENT_TIMESTAMP;
+    END IF;
+END */$$
+
+
+DELIMITER ;
+
+/* Trigger structure for table `meeting_fees` */
+
+DELIMITER $$
+
+/*!50003 DROP TRIGGER*//*!50032 IF EXISTS */ /*!50003 `update_meeting_financials_meeting_fees` */$$
+
+/*!50003 CREATE */ /*!50017 DEFINER = 'root'@'localhost' */ /*!50003 TRIGGER `update_meeting_financials_meeting_fees` AFTER UPDATE ON `meeting_fees` FOR EACH ROW 
+BEGIN
+    IF NEW.status != OLD.status THEN
+        UPDATE meeting_financials mf
+        SET 
+            total_meeting_fees_expected = (
+                SELECT COUNT(*) * 100 FROM members m 
+                JOIN meetings mt ON mt.chama_id = m.chama_id 
+                WHERE mt.id = NEW.meeting_id AND m.status = 'active'
+            ),
+            total_meeting_fees_collected = (
+                SELECT COALESCE(SUM(amount), 0) FROM meeting_fees 
+                WHERE meeting_id = NEW.meeting_id AND status = 'paid'
+            ),
+            meeting_fees_count_paid = (
+                SELECT COUNT(*) FROM meeting_fees 
+                WHERE meeting_id = NEW.meeting_id AND status = 'paid'
+            ),
+            meeting_fees_count_pending = (
+                SELECT COUNT(*) FROM meeting_fees 
+                WHERE meeting_id = NEW.meeting_id AND status = 'pending'
+            ),
+            total_cash_collected = (
+                SELECT COALESCE(SUM(amount), 0) FROM meeting_fees 
+                WHERE meeting_id = NEW.meeting_id AND status = 'paid'
+            ),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE mf.meeting_id = NEW.meeting_id;
+    END IF;
+END */$$
+
+
+DELIMITER ;
+
+/* Trigger structure for table `meeting_financials` */
+
+DELIMITER $$
+
+/*!50003 DROP TRIGGER*//*!50032 IF EXISTS */ /*!50003 `calculate_grand_total` */$$
+
+/*!50003 CREATE */ /*!50017 DEFINER = 'root'@'localhost' */ /*!50003 TRIGGER `calculate_grand_total` BEFORE UPDATE ON `meeting_financials` FOR EACH ROW 
+BEGIN
+    SET NEW.grand_total_collected = NEW.total_cash_collected + NEW.total_mobile_collected;
+END */$$
+
+
+DELIMITER ;
+
+/* Trigger structure for table `meetings` */
+
+DELIMITER $$
+
+/*!50003 DROP TRIGGER*//*!50032 IF EXISTS */ /*!50003 `initialize_meeting_financials` */$$
+
+/*!50003 CREATE */ /*!50017 DEFINER = 'root'@'localhost' */ /*!50003 TRIGGER `initialize_meeting_financials` AFTER INSERT ON `meetings` FOR EACH ROW 
+BEGIN
+    INSERT INTO meeting_financials (meeting_id, chama_id, total_members)
+    SELECT NEW.id, NEW.chama_id, COUNT(*)
+    FROM members m WHERE m.chama_id = NEW.chama_id AND m.status = 'active';
+END */$$
+
+
+DELIMITER ;
+
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
