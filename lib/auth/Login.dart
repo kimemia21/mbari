@@ -139,7 +139,7 @@ class _LoginState extends State<Login> {
         },
       );
 
-      print(result);
+      print("=========$result");
 
       if (result["rsp"]["success"] == true) {
         comms.setAuthToken(result["rsp"]["token"]);
@@ -157,7 +157,7 @@ class _LoginState extends State<Login> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(result["message"] ?? 'Signed in successfully!'),
+              content: Text(result["rsp"]["message"] ?? 'Signed in successfully!'),
               backgroundColor: Theme.of(context).colorScheme.primary,
             ),
           );
@@ -174,7 +174,7 @@ class _LoginState extends State<Login> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(result["error"] ?? "Sign in failed"),
+              content: Text(result["rsp"]["error"] ?? "Sign in failed"),
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
           );

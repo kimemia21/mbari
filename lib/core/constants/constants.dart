@@ -10,5 +10,5 @@ final Comms comms = Comms();
 User? user;
 late UserPreferences userPrefs;
 
-final baseUrl = "http://192.168.100.241:3000/api";
+final baseUrl = "http://192.168.88.227:3000/api";
  Member member = Member.empty();
