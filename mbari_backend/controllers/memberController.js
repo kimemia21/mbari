@@ -7,6 +7,7 @@ class membercontroller {
     static async register(req, res) {
         try {
             const { chama_id, name, phoneNumber, password } = req.body;
+            console.log(req.body)
 
             // Validate required fields
             if (!chama_id || !name || !phoneNumber || !password) {
@@ -126,12 +127,14 @@ class membercontroller {
                     joined_date: member.joined_date || member.created_at, // Use created_at if joined_date doesn't exist
                     created_at: member.created_at,
                     updated_at: member.updated_at,
+                    role:member.role,
                     chama_name: member.chama_name,
                     monthly_contribution: member.monthly_contribution,
                     meeting_fee: member.meeting_fee,
                     late_fine: member.late_fine,
                     absent_fine: member.absent_fine,
                     meeting_day: member.meeting_day,
+
                     deposits:deposits.data
                 }
             });

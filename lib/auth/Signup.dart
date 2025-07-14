@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mbari/auth/Login.dart';
 import 'package:mbari/core/constants/constants.dart';
+import 'package:mbari/core/utils/Alerts.dart';
 import 'package:mbari/data/models/ChamasDropDown.dart';
 import 'package:mbari/data/services/globalFetch.dart';
 import 'package:mbari/routing/Navigator.dart';
@@ -61,7 +62,7 @@ class _SignUpPageState extends State<SignUpPage> {
         endpoint: "members/register",
         data: {
           "chama_id": _selectedChama!.id,
-          'name':_fullNames.text.trim(),
+          'name': _fullNames.text.trim(),
           "phoneNumber": _phoneController.text.trim(),
           "password": _passwordController.text.trim(),
         },
@@ -75,11 +76,11 @@ class _SignUpPageState extends State<SignUpPage> {
           password: _passwordController.text.trim(),
         );
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Account created successfully!'),
-              backgroundColor: Theme.of(context).colorScheme.primary,
-            ),
+          showalert(
+            success: true,
+            context: context,
+            title: "Success",
+            subtitle: "Account created Successfully",
           );
 
           SmoothNavigator.push(
@@ -92,11 +93,12 @@ class _SignUpPageState extends State<SignUpPage> {
         }
       } else {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response["rsp"]["error"]),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-          ),
+
+        showalert(
+          success: false,
+          context: context,
+          title: "Failed",
+          subtitle: response["rsp"]["error"],
         );
       }
 
@@ -263,7 +265,9 @@ class _SignUpPageState extends State<SignUpPage> {
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: colorScheme.outline),
+                                borderSide: BorderSide(
+                                  color: colorScheme.outline,
+                                ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -274,7 +278,9 @@ class _SignUpPageState extends State<SignUpPage> {
                               ),
                               errorBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: colorScheme.error),
+                                borderSide: BorderSide(
+                                  color: colorScheme.error,
+                                ),
                               ),
                               focusedErrorBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -292,19 +298,24 @@ class _SignUpPageState extends State<SignUpPage> {
                               fontSize: screenSize.width <= 360 ? 14 : 16,
                               color: colorScheme.onSurface,
                             ),
-                            items: snapshot.data!
-                                .map(
-                                  (chama) => DropdownMenuItem<Chamasdropdown>(
-                                    value: chama,
-                                    child: Text(
-                                      chama.name,
-                                      style: TextStyle(
-                                        fontSize: screenSize.width <= 360 ? 14 : 16,
-                                      ),
-                                    ),
-                                  ),
-                                )
-                                .toList(),
+                            items:
+                                snapshot.data!
+                                    .map(
+                                      (chama) =>
+                                          DropdownMenuItem<Chamasdropdown>(
+                                            value: chama,
+                                            child: Text(
+                                              chama.name,
+                                              style: TextStyle(
+                                                fontSize:
+                                                    screenSize.width <= 360
+                                                        ? 14
+                                                        : 16,
+                                              ),
+                                            ),
+                                          ),
+                                    )
+                                    .toList(),
                             onChanged: (value) {
                               setState(() {
                                 _selectedChama = value;
@@ -442,7 +453,9 @@ class _SignUpPageState extends State<SignUpPage> {
                         if (value == null || value.isEmpty) {
                           return 'Please enter your phone number';
                         }
-                        if (!RegExp(r'^[+]?[\d\s\-\(\)]{10,}$').hasMatch(value)) {
+                        if (!RegExp(
+                          r'^[+]?[\d\s\-\(\)]{10,}$',
+                        ).hasMatch(value)) {
                           return 'Please enter a valid phone number';
                         }
                         return null;
@@ -564,7 +577,8 @@ class _SignUpPageState extends State<SignUpPage> {
                           ),
                           onPressed: () {
                             setState(() {
-                              _obscureConfirmPassword = !_obscureConfirmPassword;
+                              _obscureConfirmPassword =
+                                  !_obscureConfirmPassword;
                             });
                           },
                         ),
@@ -628,23 +642,24 @@ class _SignUpPageState extends State<SignUpPage> {
                         ),
                         elevation: 0,
                       ),
-                      child: _isLoading
-                          ? SizedBox(
-                              height: 24,
-                              width: 24,
-                              child: CircularProgressIndicator(
-                                color: colorScheme.onPrimary,
-                                strokeWidth: 2,
+                      child:
+                          _isLoading
+                              ? SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(
+                                  color: colorScheme.onPrimary,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                              : Text(
+                                'Sign Up',
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: colorScheme.onPrimary,
+                                  fontSize: screenSize.width <= 360 ? 16 : 18,
+                                ),
                               ),
-                            )
-                          : Text(
-                              'Sign Up',
-                              style: theme.textTheme.labelLarge?.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: colorScheme.onPrimary,
-                                fontSize: screenSize.width <= 360 ? 16 : 18,
-                              ),
-                            ),
                     ),
                   ),
                   SizedBox(height: screenSize.height * 0.04),

@@ -45,13 +45,13 @@ class Meeting {
 
     static async create(meetingData) {
         try {
-            const { chama_id, meeting_date, venue, agenda, status = 'scheduled' } = meetingData;
+            const { chama_id, meeting_date, venue, agenda, status = 'scheduled', start_time, end_time, created_by } = meetingData;
 
             console.log("meeting data", meetingData)
             const [result] = await pool.execute(`
-                INSERT INTO meetings (chama_id, meeting_date, venue, agenda, status)
-                VALUES (?, ?, ?, ?, ?)
-            `, [chama_id, meeting_date, venue, agenda, status]);
+                INSERT INTO meetings (chama_id, meeting_date, venue, agenda, status, start_time, end_time, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `, [chama_id, meeting_date, venue, agenda, status, start_time, end_time, created_by]);
                    return result.insertId;
         } catch (error) {
             throw error;

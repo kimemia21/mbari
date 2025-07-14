@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mbari/ADMIN/AdminDashboard.dart';
 import 'package:mbari/auth/Login.dart';
 import 'package:mbari/core/constants/constants.dart';
 import 'package:mbari/core/theme/AppTheme.dart';
@@ -25,7 +26,10 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Main Page',
      theme: AppTheme.darkTheme,
-      home: Login()
+      home:
+      // AdminDashboard()
+      
+       Login()
      
     //  ExampleUsage()
     );

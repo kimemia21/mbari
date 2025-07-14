@@ -191,7 +191,7 @@ class HomePage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '${member.chamaName}',
+              '${user.chamaName}',
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: colorScheme.onSurface,
@@ -373,7 +373,7 @@ class HomePage extends StatelessWidget {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                member.name,
+                              user.name,
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   
                                   color: colorScheme.onPrimary,

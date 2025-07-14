@@ -161,6 +161,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.24.1"
+  flare_flutter:
+    dependency: transitive
+    description:
+      name: flare_flutter
+      sha256: "99d63c60f00fac81249ce6410ee015d7b125c63d8278a30da81edf3317a1f6a0"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.0.2"
   flutter:
     dependency: "direct main"
     description: flutter
@@ -248,6 +256,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.1.2"
+  intl:
+    dependency: "direct main"
+    description:
+      name: intl
+      sha256: "3df61194eb431efc39c4ceba583b95633a403f46c9fd341e550ce0bfa50e9aa5"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.20.2"
   leak_tracker:
     dependency: transitive
     description:
@@ -416,6 +432,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.4.1"
+  sidebarx:
+    dependency: "direct main"
+    description:
+      name: sidebarx
+      sha256: abe39d6db237fb8e25c600e8039ffab80fa7fe71acab03e9c378c31f912d2766
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.17.1"
   sky_engine:
     dependency: transitive
     description: flutter
@@ -437,6 +461,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.12.1"
+  status_alert:
+    dependency: "direct main"
+    description:
+      name: status_alert
+      sha256: "220ce6c1400d19d817665ac5a87f772e87c901677ac37b93320f4764edf4d23f"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.1"
   stream_channel:
     dependency: transitive
     description:

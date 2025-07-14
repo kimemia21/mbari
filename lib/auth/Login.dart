@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:mbari/ADMIN/AdminDashboard.dart';
 import 'package:mbari/auth/Signup.dart';
 import 'package:mbari/core/constants/constants.dart';
+import 'package:mbari/core/utils/Alerts.dart';
 import 'package:mbari/core/utils/sharedPrefs.dart';
-import 'package:mbari/data/models/Member.dart';
+import 'package:mbari/data/models/User.dart';
 import 'package:mbari/features/Homepage/Homepage.dart';
 import 'package:mbari/routing/Navigator.dart';
 
@@ -78,13 +80,17 @@ class _LoginState extends State<Login> {
           if (result["rsp"]["success"] == true) {
             setState(() => _isLoading = false);
             comms.setAuthToken(result["rsp"]["token"]);
-            member = Member.fromJson(result["rsp"]["member"]);
+            user = User.fromJson(result["rsp"]["member"]);
 
             // user = result["data"];
             if (mounted) {
               SmoothNavigator.push(
                 context,
-                ChamaHomePage(),
+                user.role == Role.member
+                    ? ChamaHomePage()
+                    : user.role == Role.admin
+                    ? AdminDashboard()
+                    : ChamaHomePage(),
                 type: TransitionType.slideUp,
                 duration: Duration(milliseconds: 400),
                 curve: Curves.easeInOutCubic,
@@ -143,7 +149,7 @@ class _LoginState extends State<Login> {
 
       if (result["rsp"]["success"] == true) {
         comms.setAuthToken(result["rsp"]["token"]);
-        member = Member.fromJson(result["rsp"]["member"]);
+        user = User.fromJson(result["rsp"]["member"]);
         // user = result["data"];
 
         // Save credentials if remember me is enabled
@@ -151,20 +157,29 @@ class _LoginState extends State<Login> {
           await _userPreferences!.saveCredentials(
             phoneNumber: _phoneNumberController.text.trim(),
             password: _passwordController.text.trim(),
-            rememberMe:true,
+            rememberMe: true,
           );
         }
+
+
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result["rsp"]["message"] ?? 'Signed in successfully!'),
-              backgroundColor: Theme.of(context).colorScheme.primary,
-            ),
-          );
+
+
+          showalert(
+          success: true,
+          context: context,
+          title: "Success",
+          subtitle: result["rsp"]["message"],
+        );
+      
 
           SmoothNavigator.push(
             context,
-            ChamaHomePage(),
+            user.role == Role.member
+                ? ChamaHomePage()
+                : user.role == Role.admin
+                ? AdminDashboard()
+                : ChamaHomePage(),
             type: TransitionType.slideUp,
             duration: Duration(milliseconds: 400),
             curve: Curves.easeInOutCubic,
@@ -172,12 +187,14 @@ class _LoginState extends State<Login> {
         }
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result["rsp"]["error"] ?? "Sign in failed"),
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-          );
+         
+          showalert(
+          success: false,
+          context: context,
+          title: "Failed",
+          subtitle: result["rsp"]["error"],
+        );
+      
         }
       }
     } catch (e) {
