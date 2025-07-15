@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mbari/ADMIN/Create/CreateMeeting.dart';
+import 'package:mbari/ADMIN/Meeting/MeetingPage.dart';
 import 'package:mbari/ADMIN/Members/MembersPage.dart';
 import 'package:mbari/core/constants/constants.dart';
 import 'package:sidebarx/sidebarx.dart';
@@ -635,7 +636,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     Icons.add_circle,
                     Theme.of(context).colorScheme.primary,
                     () {
-                   showModalBottomSheet(
+  showModalBottomSheet(
    showDragHandle: true,
   enableDrag: true,
   context: context,
@@ -677,25 +678,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   // Placeholder content for Meetings page
   Widget _buildMeetingsContent() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.event, size: 80, color: Colors.grey),
-          SizedBox(height: 16),
-          Text(
-            'Meetings Page',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 8),
-          Text(
-            'Meeting management functionality will be implemented here',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey),
-          ),
-        ],
-      ),
+    return  Center(
+      
+      child:MeetingsPage()
     );
+    
   }
 
   // Placeholder content for Analytics page
