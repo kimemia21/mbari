@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:mbari/core/constants/constants.dart';
 import 'package:mbari/data/models/Meeting.dart';
+import 'package:mbari/data/models/Member.dart';
+import 'package:mbari/data/services/globalFetch.dart';
 
 class MeetingDetailsContent extends StatefulWidget {
   final Meeting meeting;
-  final List<Map<String, dynamic>> members;
 
   const MeetingDetailsContent({
     super.key,
     required this.meeting,
-    required this.members,
   });
 
   @override
@@ -16,21 +17,85 @@ class MeetingDetailsContent extends StatefulWidget {
 }
 
 class _MeetingDetailsContentState extends State<MeetingDetailsContent> {
-  late List<Map<String, dynamic>> memberAttendance;
+  late Future<List<Member>> _membersFuture;
+  late String msg;
+  bool isAttendanceOpen = false;
 
   @override
   void initState() {
     super.initState();
-    memberAttendance = List<Map<String, dynamic>>.from(widget.members);
+    _membersFuture = _fetchMembers();
+    _checkAttendanceStatus();
   }
 
-  bool get isAttendanceOpen {
-    final now = TimeOfDay.now();
-    final start = widget.meeting.startTime;
-    if (start == null) return false;
+  Future<List<Member>> _fetchMembers() async {
+    final results = await fetchGlobal<Member>(
+      getRequests: (endpoint) => comms.getRequests(endpoint: endpoint),
+      fromJson: (json) => Member.fromJson(json),
+      endpoint: "members",
+    );
+    return results;
+  }
 
-    return now.hour > start.hour ||
-        (now.hour == start.hour && now.minute >= start.minute);
+void _checkAttendanceStatus() {
+  final now = DateTime.now();
+  final meetingDate = widget.meeting.meetingDate;
+  final startTime = widget.meeting.startTime;
+
+  String statusMessage;
+  bool canCheckIn = false;
+
+  if (startTime == null || meetingDate == null) {
+    statusMessage = 'Invalid meeting data';
+  } else {
+    final isSameDay = _isSameDay(now, meetingDate);
+
+    if (!isSameDay) {
+      statusMessage = 'You can only check in on the meeting day.';
+    } else {
+      final meetingStartDateTime = DateTime(
+        meetingDate.year,
+        meetingDate.month,
+        meetingDate.day,
+        startTime.hour,
+        startTime.minute,
+      );
+
+      // Calculate attendance window: 30 minutes before start time, closes at start time
+      final earlyCheckIn = meetingStartDateTime.subtract(const Duration(minutes: 30));
+
+      if (now.isBefore(earlyCheckIn)) {
+        // Too early to check in
+        final minutesUntilOpen = earlyCheckIn.difference(now).inMinutes;
+        statusMessage = 'Too early to check in. Please wait $minutesUntilOpen minutes.';
+        canCheckIn = false;
+      } else if (now.isAfter(earlyCheckIn) && now.isBefore(meetingStartDateTime)) {
+        // Early check-in window (30 minutes before start)
+        final minutesUntilStart = meetingStartDateTime.difference(now).inMinutes;
+        statusMessage = 'You can check in now. Meeting starts in $minutesUntilStart minutes.';
+        canCheckIn = true;
+      } else if (now.isAfter(meetingStartDateTime)) {
+        // Meeting has started - too late to check in
+        final minutesLate = now.difference(meetingStartDateTime).inMinutes;
+        statusMessage = 'Too late! Meeting started $minutesLate minutes ago.';
+        canCheckIn = false;
+      } else {
+        // Edge case fallback
+        statusMessage = 'Unable to determine attendance status.';
+        canCheckIn = false;
+      }
+    }
+  }
+
+  setState(() {
+    msg = statusMessage;
+    isAttendanceOpen = canCheckIn;
+  });
+}
+  bool _isSameDay(DateTime date1, DateTime date2) {
+    return date1.year == date2.year &&
+        date1.month == date2.month &&
+        date1.day == date2.day;
   }
 
   bool _isMobile(BuildContext context) {
@@ -169,11 +234,7 @@ class _MeetingDetailsContentState extends State<MeetingDetailsContent> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          icon,
-          size: 20,
-          color: Theme.of(context).primaryColor,
-        ),
+        Icon(icon, size: 20, color: Theme.of(context).primaryColor),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -215,12 +276,13 @@ class _MeetingDetailsContentState extends State<MeetingDetailsContent> {
           Row(
             children: [
               Expanded(
-                child: _buildDetailRow('Chama:', widget.meeting.chamaName ?? 'N/A'),
+                child: _buildDetailRow(
+                  'Chama:',
+                  widget.meeting.chamaName ?? 'N/A',
+                ),
               ),
               const SizedBox(width: 24),
-              Expanded(
-                child: _buildDetailRow('Venue:', widget.meeting.venue),
-              ),
+              Expanded(child: _buildDetailRow('Venue:', widget.meeting.venue)),
             ],
           ),
           const SizedBox(height: 12),
@@ -246,7 +308,10 @@ class _MeetingDetailsContentState extends State<MeetingDetailsContent> {
             ],
           ),
           const SizedBox(height: 12),
-          _buildDetailRow('Created By:', widget.meeting.createdByName ?? 'Deleted'),
+          _buildDetailRow(
+            'Created By:',
+            widget.meeting.createdByName ?? 'Deleted',
+          ),
         ],
       ),
     );
@@ -283,13 +348,28 @@ class _MeetingDetailsContentState extends State<MeetingDetailsContent> {
   }
 
   Widget _buildAttendanceList(BuildContext context) {
-    if (_isMobile(context)) {
-      return _buildMobileAttendanceList(context);
-    }
-    return _buildDesktopAttendanceList(context);
+    return FutureBuilder<List<Member>>(
+      future: _membersFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(child: Text('No members found.'));
+        } else {
+          final members = snapshot.data!;
+          
+          if (_isMobile(context)) {
+            return _buildMobileAttendanceList(context, members);
+          }
+          return _buildDesktopAttendanceList(context, members);
+        }
+      },
+    );
   }
 
-  Widget _buildMobileAttendanceList(BuildContext context) {
+  Widget _buildMobileAttendanceList(BuildContext context, List<Member> members) {
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
@@ -298,53 +378,58 @@ class _MeetingDetailsContentState extends State<MeetingDetailsContent> {
       child: ListView.separated(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        itemCount: memberAttendance.length,
+        itemCount: members.length,
         separatorBuilder: (context, index) => Divider(height: 1, color: Colors.grey[200]),
         itemBuilder: (context, index) {
-          final member = memberAttendance[index];
-          final status = member['status'] == 'present';
-
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 16,
-                  backgroundColor: status ? Colors.green[100] : Colors.grey[200],
-                  child: Icon(
-                    status ? Icons.check : Icons.person,
-                    size: 16,
-                    color: status ? Colors.green : Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    member['name'],
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
+          final member = members[index];
+          
+          return StatefulBuilder(
+            builder: (context, setState) {
+              bool isPresent = false;
+              
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 16,
+                      backgroundColor: isPresent ? Colors.green[100] : Colors.grey[200],
+                      child: Icon(
+                        isPresent ? Icons.check : Icons.person,
+                        size: 16,
+                        color: isPresent ? Colors.green : Colors.grey[600],
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        member.name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    Switch(
+                      value: isPresent,
+                      onChanged: (value) {
+                        setState(() {
+                          isPresent = value;
+                        });
+                      },
+                      activeColor: Colors.green,
+                    ),
+                  ],
                 ),
-                Switch(
-                  value: status,
-                  onChanged: (value) {
-                    setState(() {
-                      memberAttendance[index]['status'] = value ? 'present' : 'absent';
-                    });
-                  },
-                  activeColor: Colors.green,
-                ),
-              ],
-            ),
+              );
+            },
           );
         },
       ),
     );
   }
 
-  Widget _buildDesktopAttendanceList(BuildContext context) {
+  Widget _buildDesktopAttendanceList(BuildContext context, List<Member> members) {
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[300]!),
@@ -353,35 +438,37 @@ class _MeetingDetailsContentState extends State<MeetingDetailsContent> {
       child: ListView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        itemCount: memberAttendance.length,
+        itemCount: members.length,
         itemBuilder: (context, index) {
-          final member = memberAttendance[index];
-          final status = member['status'] == 'present';
-
-          return SwitchListTile(
-            value: status,
-            title: Text(
-              member['name'],
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            secondary: CircleAvatar(
-              radius: 20,
-              backgroundColor: status ? Colors.green[100] : Colors.grey[200],
-              child: Icon(
-                status ? Icons.check : Icons.person,
-                size: 18,
-                color: status ? Colors.green : Colors.grey[600],
-              ),
-            ),
-            onChanged: (value) {
-              setState(() {
-                memberAttendance[index]['status'] = value ? 'present' : 'absent';
-              });
+          final member = members[index];
+          
+          return StatefulBuilder(
+            builder: (context, setState) {
+              bool isPresent = false;
+              
+              return SwitchListTile(
+                value: isPresent,
+                title: Text(
+                  member.name,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                ),
+                secondary: CircleAvatar(
+                  radius: 20,
+                  backgroundColor: isPresent ? Colors.green[100] : Colors.grey[200],
+                  child: Icon(
+                    isPresent ? Icons.check : Icons.person,
+                    size: 18,
+                    color: isPresent ? Colors.green : Colors.grey[600],
+                  ),
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    isPresent = value;
+                  });
+                },
+                activeColor: Colors.green,
+              );
             },
-            activeColor: Colors.green,
           );
         },
       ),
@@ -398,19 +485,12 @@ class _MeetingDetailsContentState extends State<MeetingDetailsContent> {
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.info_outline,
-            color: Colors.orange[700],
-            size: 20,
-          ),
+          Icon(Icons.info_outline, color: Colors.orange[700], size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'You cannot mark attendance before the meeting starts.',
-              style: TextStyle(
-                color: Colors.orange[700],
-                fontSize: 14,
-              ),
+              msg,
+              style: TextStyle(color: Colors.orange[700], fontSize: 14),
             ),
           ),
         ],
@@ -419,41 +499,62 @@ class _MeetingDetailsContentState extends State<MeetingDetailsContent> {
   }
 
   Widget _buildActionButton(BuildContext context) {
-    if (_isMobile(context)) {
-      return SizedBox(
-        width: double.infinity,
-        child: ElevatedButton.icon(
-          onPressed: isAttendanceOpen
-              ? () {
-                  Navigator.pop(context, memberAttendance);
-                }
-              : null,
-          icon: const Icon(Icons.check),
-          label: const Text('Confirm Attendance'),
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+    return FutureBuilder<List<Member>>(
+      future: _membersFuture,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const SizedBox.shrink();
+        }
+        
+        final members = snapshot.data!;
+        
+        if (_isMobile(context)) {
+          return SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: isAttendanceOpen
+                  ? () {
+                      final attendanceData = members.map((member) => {
+                        'id': member.id,
+                        'name': member.name,
+                        'status': 'absent', // Default to absent since we don't track state
+                      }).toList();
+                      Navigator.pop(context, attendanceData);
+                    }
+                  : null,
+              icon: const Icon(Icons.check),
+              label: const Text('Confirm Attendance'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          );
+        }
+
+        return Align(
+          alignment: Alignment.centerRight,
+          child: ElevatedButton.icon(
+            onPressed: isAttendanceOpen
+                ? () {
+                    final attendanceData = members.map((member) => {
+                      'id': member.id,
+                      'name': member.name,
+                      'status': 'absent', // Default to absent since we don't track state
+                    }).toList();
+                    Navigator.pop(context, attendanceData);
+                  }
+                : null,
+            icon: const Icon(Icons.check),
+            label: const Text('Confirm'),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
           ),
-        ),
-      );
-    }
-
-    return Align(
-      alignment: Alignment.centerRight,
-      child: ElevatedButton.icon(
-        onPressed: isAttendanceOpen
-            ? () {
-                Navigator.pop(context, memberAttendance);
-              }
-            : null,
-        icon: const Icon(Icons.check),
-        label: const Text('Confirm'),
-        style: ElevatedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -476,9 +577,7 @@ class _MeetingDetailsContentState extends State<MeetingDetailsContent> {
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w500),
             ),
           ),
         ],

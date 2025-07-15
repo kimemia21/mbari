@@ -5,7 +5,9 @@ import 'package:mbari/data/models/Meeting.dart';
 import 'package:intl/intl.dart';
 
 class CreateMeetingForm extends StatefulWidget {
-  const CreateMeetingForm({Key? key}) : super(key: key);
+  final void Function(bool)? onMeetingCreated;
+
+  const CreateMeetingForm({Key? key, this.onMeetingCreated}) : super(key: key);
 
   @override
   State<CreateMeetingForm> createState() => _CreateMeetingFormState();
@@ -200,6 +202,9 @@ class _CreateMeetingFormState extends State<CreateMeetingForm> {
           title: "Success",
           subtitle: "Meeting created for ${DateFormat('MMM dd, yyyy').format(_selectedDate!)} successfully",
         );
+        if (widget.onMeetingCreated != null) {
+          widget.onMeetingCreated!(true);
+        }
         Navigator.pop(context);
       } else {
         setState(() => _isLoading = false);

@@ -74,14 +74,22 @@ class _MeetingPageState extends State<MeetingPage> {
 
                   final meetings = snapshot.data!;
                   final now = DateTime.now();
-                  final upcomingMeetings = meetings
-                      .where((m) =>
-                          m.meetingDate.isAfter(now) || m.status == 'scheduled')
-                      .toList();
-                  final pastMeetings = meetings
-                      .where((m) =>
-                          m.meetingDate.isBefore(now) || m.status == 'completed')
-                      .toList();
+                  final upcomingMeetings =
+                      meetings
+                          .where(
+                            (m) =>
+                                m.meetingDate.isAfter(now) ||
+                                m.status == 'scheduled',
+                          )
+                          .toList();
+                  final pastMeetings =
+                      meetings
+                          .where(
+                            (m) =>
+                                m.meetingDate.isBefore(now) ||
+                                m.status == 'completed',
+                          )
+                          .toList();
 
                   return SingleChildScrollView(
                     child: Column(
@@ -131,7 +139,14 @@ class _MeetingPageState extends State<MeetingPage> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () => _showCreateMeetingModal(context),
+              onPressed:
+                  () => _showCreateMeetingModal(context, (po) {
+                    if (po) {
+                      setState(() {
+                        _meetingsFuture = fetchMeetings();
+                      });
+                    }
+                  }),
               child: Text("Create Meeting"),
             ),
           ),
@@ -151,7 +166,14 @@ class _MeetingPageState extends State<MeetingPage> {
           ),
         ),
         TextButton(
-          onPressed: () => _showCreateMeetingModal(context),
+          onPressed:
+              () => _showCreateMeetingModal(context, (po) {
+                if (po) {
+                  setState(() {
+                    _meetingsFuture = fetchMeetings();
+                  });
+                }
+              }),
           child: Text("Create Meeting"),
         ),
       ],
@@ -169,14 +191,21 @@ class _MeetingPageState extends State<MeetingPage> {
     );
   }
 
-  void _showCreateMeetingModal(BuildContext context) {
+  void _showCreateMeetingModal(
+    BuildContext context,
+    void Function(bool) callBack,
+  ) {
     showModalBottomSheet(
       showDragHandle: true,
       enableDrag: true,
       context: context,
       isScrollControlled: true,
       builder: (context) {
-        return CreateMeetingForm();
+        return CreateMeetingForm(
+          onMeetingCreated: (p0) {
+            callBack(true);
+          },
+        );
       },
     );
   }
@@ -221,94 +250,100 @@ class MeetingDataTable extends StatelessWidget {
 
   Widget _buildMobileList(BuildContext context) {
     return Column(
-      children: meetings.map((meeting) {
-        return Container(
-          margin: EdgeInsets.only(bottom: 12),
-          padding: EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey[300]!),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children:
+          meetings.map((meeting) {
+            return Container(
+              margin: EdgeInsets.only(bottom: 12),
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey[300]!),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => _showMeetingDetails(context, meeting),
-                      child: Text(
-                        meeting.agenda,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => _showMeetingDetails(context, meeting),
+                          child: Text(
+                            meeting.agenda,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _getStatusColor(meeting.status),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      _getStatusText(meeting.status),
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white,
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _getStatusColor(meeting.status),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          _getStatusText(meeting.status),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
-              SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
-                  SizedBox(width: 4),
-                  Text(
-                    DateFormat('MMM dd, yyyy').format(meeting.meetingDate),
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  if (meeting.startTime != null) ...[
-                    SizedBox(width: 12),
-                    Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                    SizedBox(width: 4),
-                    Text(
-                      '${meeting.startTime!.format(context)}',
-                      style: TextStyle(
-                        fontSize: 14,
+                  SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.calendar_today,
+                        size: 16,
                         color: Colors.grey[600],
                       ),
-                    ),
-                  ],
-                ],
-              ),
-              SizedBox(height: 4),
-              Row(
-                children: [
-                  Icon(Icons.person, size: 16, color: Colors.grey[600]),
-                  SizedBox(width: 4),
-                  Text(
-                    'Created by ${meeting.createdByName!}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
+                      SizedBox(width: 4),
+                      Text(
+                        DateFormat('MMM dd, yyyy').format(meeting.meetingDate),
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      ),
+                      if (meeting.startTime != null) ...[
+                        SizedBox(width: 12),
+                        Icon(
+                          Icons.access_time,
+                          size: 16,
+                          color: Colors.grey[600],
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          '${meeting.startTime!.format(context)}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.person, size: 16, color: Colors.grey[600]),
+                      SizedBox(width: 4),
+                      Text(
+                        'Created by ${meeting.createdByName!}',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-        );
-      }).toList(),
+            );
+          }).toList(),
     );
   }
 
@@ -339,110 +374,99 @@ class MeetingDataTable extends StatelessWidget {
               horizontalMargin: 16,
               dividerThickness: 1,
               columns: [
+                DataColumn(label: Container(width: 120, child: Text('Date'))),
+                DataColumn(label: Expanded(child: Text('Title'))),
+                DataColumn(label: Container(width: 100, child: Text('Status'))),
                 DataColumn(
-                  label: Container(
-                    width: 120,
-                    child: Text('Date'),
-                  ),
-                ),
-                DataColumn(
-                  label: Expanded(
-                    child: Text('Title'),
-                  ),
-                ),
-                DataColumn(
-                  label: Container(
-                    width: 100,
-                    child: Text('Status'),
-                  ),
-                ),
-                DataColumn(
-                  label: Container(
-                    width: 150,
-                    child: Text('Created By'),
-                  ),
+                  label: Container(width: 150, child: Text('Created By')),
                 ),
               ],
-              rows: meetings.map((meeting) {
-                return DataRow(
-                  cells: [
-                    DataCell(
-                      Container(
-                        width: 120,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              DateFormat('MMM dd, yyyy').format(meeting.meetingDate),
+              rows:
+                  meetings.map((meeting) {
+                    return DataRow(
+                      cells: [
+                        DataCell(
+                          Container(
+                            width: 120,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  DateFormat(
+                                    'MMM dd, yyyy',
+                                  ).format(meeting.meetingDate),
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                if (meeting.startTime != null)
+                                  Text(
+                                    '${meeting.startTime!.format(context)}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          GestureDetector(
+                            onTap: () => _showMeetingDetails(context, meeting),
+                            child: Text(
+                              meeting.agenda,
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
                                 color: Colors.black,
                               ),
                             ),
-                            if (meeting.startTime != null)
-                              Text(
-                                '${meeting.startTime!.format(context)}',
+                          ),
+                        ),
+                        DataCell(
+                          Container(
+                            width: 100,
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _getStatusColor(meeting.status),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                _getStatusText(meeting.status),
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.white,
                                 ),
+                                textAlign: TextAlign.center,
                               ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      GestureDetector(
-                        onTap: () => _showMeetingDetails(context, meeting),
-                        child: Text(
-                          meeting.agenda,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      Container(
-                        width: 100,
-                        child: Container(
-                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: _getStatusColor(meeting.status),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            _getStatusText(meeting.status),
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white,
                             ),
-                            textAlign: TextAlign.center,
                           ),
                         ),
-                      ),
-                    ),
-                    DataCell(
-                      Container(
-                        width: 150,
-                        child: Text(
-                          meeting.createdByName!,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.black,
+                        DataCell(
+                          Container(
+                            width: 150,
+                            child: Text(
+                              meeting.createdByName!,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.black,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
+                      ],
+                    );
+                  }).toList(),
             ),
           ),
         ),
@@ -457,13 +481,7 @@ class MeetingDataTable extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       builder: (context) {
-        return MeetingDetailsContent(
-          meeting: meeting,
-          members: [
-            {"id": 1, "name": "John Doe", "status": "absent"},
-            {"id": 2, "name": "Jane Smith", "status": "present"},
-          ],
-        );
+        return MeetingDetailsContent(meeting: meeting);
       },
     );
   }

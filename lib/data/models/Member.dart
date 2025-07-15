@@ -2,38 +2,41 @@ class Member {
   final String id;
   final String name;
   final String phone;
-  final double contributedAmount;
-  final double debts;
-  final int attendance;
-  final DateTime joinDate;
-  bool isActive;
+
+  final double? contributedAmount;
+  final double? debts;
+  final int? attendance;
+  final DateTime? joinDate;
+  bool? isActive;
 
   Member({
     required this.id,
     required this.name,
     required this.phone,
-    required this.contributedAmount,
-    required this.debts,
-    required this.attendance,
-    required this.joinDate,
-    required this.isActive,
+    this.contributedAmount,
+    this.debts,
+    this.attendance,
+    this.joinDate,
+    this.isActive,
   });
 
-  // Optional: from JSON (if fetching from an API)
   factory Member.fromJson(Map<String, dynamic> json) {
     return Member(
       id: json['id'].toString(),
-      name: json['name'],
-      phone: json['phone'],
-      contributedAmount: (json['contributedAmount'] ?? 0).toDouble(),
-      debts: (json['debts'] ?? 0).toDouble(),
-      attendance: (json['attendance'] ?? 0).toInt(),
-      joinDate: DateTime.parse(json['joinDate']),
-      isActive: json['isActive'] ?? false,
+      name: json['name'] ?? '',
+      phone: json['phoneNumber'] ?? '',
+      contributedAmount: json['contributedAmount'] != null
+          ? (json['contributedAmount'] as num).toDouble()
+          : null,
+      debts: json['debts'] != null ? (json['debts'] as num).toDouble() : null,
+      attendance: json['attendance'],
+      joinDate: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'])
+          : null,
+      isActive: json['isActive'],
     );
   }
 
-  // Optional: to JSON (if sending to backend)
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -42,7 +45,7 @@ class Member {
       'contributedAmount': contributedAmount,
       'debts': debts,
       'attendance': attendance,
-      'joinDate': joinDate.toIso8601String(),
+      'joinDate': joinDate?.toIso8601String(),
       'isActive': isActive,
     };
   }

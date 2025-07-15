@@ -182,17 +182,17 @@ class _MembersPageState extends State<MembersPage> {
       },
       {
         'title': 'Active Members',
-        'value': '${_members.where((m) => m.isActive).length}',
+        'value': '${_members.where((m) => m.isActive!).length}',
         'icon': Icons.check_circle
       },
       {
         'title': 'Total Contributions',
-        'value': 'KSh ${_members.fold(0.0, (sum, m) => sum + m.contributedAmount)}',
+        'value': 'KSh ${_members.fold(0.0, (sum, m) => sum + m.contributedAmount!)}',
         'icon': Icons.account_balance_wallet
       },
       {
         'title': 'Total Debts',
-        'value': 'KSh ${_members.fold(0.0, (sum, m) => sum + m.debts)}',
+        'value': 'KSh ${_members.fold(0.0, (sum, m) => sum + m.debts!)}',
         'icon': Icons.warning
       },
     ];
@@ -286,7 +286,7 @@ class _MembersPageState extends State<MembersPage> {
       ),
       child: ExpansionTile(
         leading: CircleAvatar(
-          backgroundColor: member.isActive ? theme.primaryColor : Colors.grey,
+          backgroundColor: member.isActive! ? theme.primaryColor : Colors.grey,
           child: Text(
             member.name.substring(0, 2).toUpperCase(),
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
@@ -310,15 +310,15 @@ class _MembersPageState extends State<MembersPage> {
             Container(
               padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: member.isActive
+                color: member.isActive!
                     ? Colors.green.withOpacity(0.1)
                     : Colors.red.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                member.isActive ? 'Active' : 'Inactive',
+                member.isActive! ? 'Active' : 'Inactive',
                 style: TextStyle(
-                  color: member.isActive ? Colors.green : Colors.red,
+                  color: member.isActive !? Colors.green : Colors.red,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
@@ -436,10 +436,10 @@ class _MembersPageState extends State<MembersPage> {
                             theme,
                           ),
                           _buildActionButton(
-                            member.isActive ? 'Deactivate' : 'Activate',
-                            member.isActive ? Icons.block : Icons.check_circle,
+                            member.isActive! ? 'Deactivate' : 'Activate',
+                            member.isActive! ? Icons.block : Icons.check_circle,
                             () => _toggleMemberStatus(member),
-                            member.isActive ? Colors.orange : Colors.green,
+                            member.isActive! ? Colors.orange : Colors.green,
                             theme,
                           ),
                           _buildActionButton(
@@ -464,10 +464,10 @@ class _MembersPageState extends State<MembersPage> {
                             theme,
                           ),
                           _buildActionButton(
-                            member.isActive ? 'Deactivate' : 'Activate',
-                            member.isActive ? Icons.block : Icons.check_circle,
+                            member.isActive! ? 'Deactivate' : 'Activate',
+                            member.isActive! ? Icons.block : Icons.check_circle,
                             () => _toggleMemberStatus(member),
-                            member.isActive ? Colors.orange : Colors.green,
+                            member.isActive! ? Colors.orange : Colors.green,
                             theme,
                           ),
                           _buildActionButton(
@@ -654,11 +654,11 @@ class _MembersPageState extends State<MembersPage> {
 
   void _toggleMemberStatus(Member member) {
     setState(() {
-      member.isActive = !member.isActive;
+      member.isActive = !member.isActive!;
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-          content: Text('${member.name} ${member.isActive ? "activated" : "deactivated"}')),
+          content: Text('${member.name} ${member.isActive! ? "activated" : "deactivated"}')),
     );
   }
 
