@@ -190,6 +190,45 @@ class membercontroller {
             });
         }
     }
+// ///////
+static async getAllUsers(req, res) {
+        try {
+            const chamaId = req.user.chama_id; // From auth middleware
+
+            const users = await Member.findAll(chamaId);
+            if (!users) {
+                return res.status(404).json({
+                    success: false,
+                    error: 'Chama  Members not found'
+                });
+            }
+
+            // Get member stats
+ 
+
+const formattedUsers = users.map(user => ({
+  id: user.id,
+  name: user.name,
+  phoneNumber: user.phoneNumber,
+  chama_id: user.chama_id,
+created_at: user.created_at
+}));
+
+res.json({
+  success: true,
+  data: formattedUsers
+});
+        } catch (error) {
+            console.error('fetch users error:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Failed to get users',
+                details: error.message
+            });
+        }
+    }
+
+    
 
     // Get member dashboard data
     static async getDashboard(req, res) {
