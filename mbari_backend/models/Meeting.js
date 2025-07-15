@@ -5,10 +5,19 @@ class Meeting {
     static async findAll() {
         try {
             const [meetings] = await pool.execute(`
-                SELECT m.*, c.name as chama_name
-                FROM meetings m
-                LEFT JOIN chamas c ON m.chama_id = c.id
-                ORDER BY m.meeting_date DESC
+       SELECT 
+    m.*, 
+    c.name AS chama_name,
+    mem.name AS created_by_name
+FROM 
+    meetings m
+LEFT JOIN 
+    chamas c ON m.chama_id = c.id
+LEFT JOIN 
+    members mem ON m.created_by = mem.id
+ORDER BY 
+    m.meeting_date DESC;
+
             `);
             return meetings;
         } catch (error) {
@@ -19,10 +28,21 @@ class Meeting {
     static async findById(id) {
         try {
             const [meetings] = await pool.execute(`
-                SELECT m.*, c.name as chama_name
-                FROM meetings m
-                LEFT JOIN chamas c ON m.chama_id = c.id
-                WHERE m.id = ?
+     SELECT 
+    m.*, 
+    c.name AS chama_name,
+    mem.name AS created_by_name
+FROM 
+    meetings m
+LEFT JOIN 
+    chamas c ON m.chama_id = c.id
+LEFT JOIN 
+    members mem ON m.created_by = mem.id
+WHERE 
+    m.id = ?
+ORDER BY 
+    m.meeting_date DESC;
+
             `, [id]);
             return meetings[0] || null;
         } catch (error) {
@@ -33,9 +53,22 @@ class Meeting {
     static async findByChamaId(chamaId) {
         try {
             const [meetings] = await pool.execute(`
-                SELECT * FROM meetings 
-                WHERE chama_id = ?
-                ORDER BY meeting_date DESC
+             SELECT 
+    m.*, 
+    c.name AS chama_name,
+    mem.name AS created_by_name
+FROM 
+    meetings m
+LEFT JOIN 
+    chamas c ON m.chama_id = c.id
+LEFT JOIN 
+    members mem ON m.created_by = mem.id
+WHERE 
+    m.chama_id = ?
+ORDER BY 
+    m.meeting_date DESC;
+
+             
             `, [chamaId]);
             return meetings;
         } catch (error) {

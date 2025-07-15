@@ -11,6 +11,10 @@ class Meeting {
   final TimeOfDay? endTime;
   final int created_by;
 
+  // New fields from the joined tables
+  final String? chamaName;
+  final String? createdByName;
+
   Meeting({
     this.id,
     required this.chamaId,
@@ -21,6 +25,8 @@ class Meeting {
     this.startTime,
     this.endTime,
     required this.created_by,
+    this.chamaName,
+    this.createdByName,
   });
 
   Map<String, dynamic> toJson() {
@@ -30,16 +36,16 @@ class Meeting {
       'venue': venue,
       'agenda': agenda,
       'status': status,
-      'start_time':
-          startTime != null
-              ? '${startTime!.hour.toString().padLeft(2, '0')}:${startTime!.minute.toString().padLeft(2, '0')}'
-              : null,
-      'end_time':
-          endTime != null
-              ? '${endTime!.hour.toString().padLeft(2, '0')}:${endTime!.minute.toString().padLeft(2, '0')}'
-
-              : null,
-      'created_by':created_by        
+      'start_time': startTime != null
+          ? '${startTime!.hour.toString().padLeft(2, '0')}:${startTime!.minute.toString().padLeft(2, '0')}'
+          : null,
+      'end_time': endTime != null
+          ? '${endTime!.hour.toString().padLeft(2, '0')}:${endTime!.minute.toString().padLeft(2, '0')}'
+          : null,
+      'created_by': created_by,
+      // Optional: include extra names if you're posting to an API that accepts them
+      'chama_name': chamaName,
+      'created_by_name': createdByName,
     };
   }
 
@@ -51,8 +57,8 @@ class Meeting {
     }
 
     return Meeting(
-      id: json['id'],
-      chamaId: json['chama_id'],
+      id: json['id']?.toString(),
+      chamaId: json['chama_id'].toString(),
       meetingDate: DateTime.parse(json['meeting_date']),
       venue: json['venue'],
       agenda: json['agenda'],
@@ -60,6 +66,8 @@ class Meeting {
       startTime: parseTime(json['start_time']),
       endTime: parseTime(json['end_time']),
       created_by: json["created_by"],
+      chamaName: json['chama_name'],
+      createdByName: json['created_by_name']??"DELETED",
     );
   }
 }

@@ -678,9 +678,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   // Placeholder content for Meetings page
   Widget _buildMeetingsContent() {
-    return  Center(
+    return  Expanded(
       
-      child:MeetingsPage()
+      child:MeetingPage()
     );
     
   }
