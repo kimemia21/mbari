@@ -1,7 +1,12 @@
+const { Contribution, MeetingFee } = require('../models/financialModels');
 const { Meeting, MeetingAttendance, MeetingFinancials } = require('../models/Meeting');
 
 // Meeting Controller
 class MeetingController {
+
+
+
+
     static async getAllMeetings(req, res) {
         try {
             const meetings = await Meeting.findAll();
@@ -18,6 +23,50 @@ class MeetingController {
             });
         }
     }
+
+
+static async getMeetingForToday(req, res) {
+    try {
+        const chamaId = req.user.chama_id;
+        const result = await Meeting.meetingForToday(chamaId);
+
+        // Handle if meetingForToday returned no meeting or explicitly signaled failure
+        if (!result || result.success === false || !result.meeting) {
+            return res.status(404).json({
+                success: false,
+                message: result?.message || 'No meeting found for today',
+                data: null
+            });
+        }
+
+        const meeting = result.meeting;
+        const startTime = meeting.start_time?.slice(0, 5) || 'unknown';
+        const venue = meeting.venue || 'unspecified location';
+        const agenda = meeting.agenda || 'No agenda provided';
+
+        return res.json({
+            success: true,
+            data: meeting,
+            message: `✅ You have a meeting today at ${startTime} Venue is  ${venue}. Agenda: ${agenda}`
+        });
+
+    } catch (error) {
+        console.error('Error retrieving today\'s meeting:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error retrieving meeting',
+            error: error.message
+        });
+    }
+}
+
+
+
+
+    
+
+
+
 
     static async getMeetingById(req, res) {
         try {
@@ -243,6 +292,12 @@ class MeetingAttendanceController {
         try {
             const attendanceData = req.body;
             const attendanceId = await MeetingAttendance.create(attendanceData);
+            const member_id = req.body.member_id;
+            const meeting_id =req.body.meeting_id;
+
+            const  feeData = {member_id,meeting_id};
+// once attendance is confirmed the meeting fee is created
+            await MeetingFee.create(feeData);
             
             res.status(201).json({
                 success: true,

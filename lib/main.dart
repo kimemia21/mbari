@@ -5,6 +5,7 @@ import 'package:mbari/core/constants/constants.dart';
 import 'package:mbari/core/theme/AppTheme.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:mbari/core/utils/sharedPrefs.dart';
+import 'package:mbari/widgets/MeetingLoadingWidget.dart';
 import 'firebase_options.dart';
 
 void main() async{
@@ -29,7 +30,7 @@ class MyApp extends StatelessWidget {
       home:
       // AdminDashboard()
       
-       Login()
+      Login()
      
     //  ExampleUsage()
     );

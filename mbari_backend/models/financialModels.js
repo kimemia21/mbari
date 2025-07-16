@@ -184,18 +184,45 @@ class MeetingFee {
         }
     }
 
-    static async create(feeData) {
-        try {
-            const { member_id, meeting_id, amount = 100.00, payment_method_id, payment_date, status = 'pending', collected_by, notes } = feeData;
-            const [result] = await pool.execute(`
-                INSERT INTO meeting_fees (member_id, meeting_id, amount, payment_method_id, payment_date, status, collected_by, notes)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            `, [member_id, meeting_id, amount, payment_method_id, payment_date, status, collected_by, notes]);
-            return result.insertId;
-        } catch (error) {
-            throw error;
-        }
+ static async create(feeData) {
+    console.log("feeData", feeData);
+
+    try {
+        const {
+            member_id,
+            meeting_id,
+            amount = 100.00,
+            payment_method_id = 1,
+            status = 'pending',
+            notes = "pending payment"
+        } = feeData;
+
+        const [result] = await pool.execute(`
+            INSERT INTO meeting_fees (
+                member_id,
+                meeting_id,
+                amount,
+                payment_method_id,
+                status,
+                notes
+            ) VALUES (?, ?, ?, ?, ?, ?)
+        `, [
+            member_id,
+            meeting_id,
+            amount,
+            payment_method_id,
+            status, 
+            notes
+        ]);
+
+        return result.insertId;
+
+    } catch (error) {
+        console.error("Error inserting meeting fee:", error);
+        throw error;
     }
+}
+
 
     static async update(id, feeData) {
         try {

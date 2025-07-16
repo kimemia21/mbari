@@ -1,5 +1,5 @@
-
 import 'package:mbari/core/utils/sharedPrefs.dart';
+import 'package:mbari/data/models/Meeting.dart';
 import 'package:mbari/data/models/User.dart';
 import 'package:mbari/data/services/comms.dart';
 
@@ -9,6 +9,8 @@ late UserPreferences userPrefs;
 
 final baseUrl = "http://192.168.100.241:3000/api";
 User user = User.empty();
+
+Meeting meeting = Meeting.empty();
 
 enum Role { admin, member }
 
@@ -26,8 +28,6 @@ Role StringToRole(String role) {
   }
 }
 
-
-
 String RoleToString(Role role) {
   switch (role) {
     case Role.member:
@@ -39,5 +39,3 @@ String RoleToString(Role role) {
       return "member";
   }
 }
-
-

@@ -29,6 +29,23 @@ class Meeting {
     this.createdByName,
   });
 
+
+
+    /// Factory constructor for an empty instance
+  factory Meeting.empty() {
+    return Meeting(
+      chamaId: '',
+      meetingDate: DateTime.now(),
+      venue: '',
+      agenda: '',
+      created_by: 0, // fixed: use int instead of ''
+    );
+  }
+
+
+
+  
+
   Map<String, dynamic> toJson() {
     return {
       'chama_id': chamaId,

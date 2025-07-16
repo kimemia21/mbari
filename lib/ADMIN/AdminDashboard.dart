@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mbari/ADMIN/Create/CreateMeeting.dart';
 import 'package:mbari/ADMIN/Meeting/MeetingPage.dart';
+import 'package:mbari/ADMIN/Meeting/ONEPAGE.dart';
 import 'package:mbari/ADMIN/Members/MembersPage.dart';
 import 'package:mbari/core/constants/constants.dart';
 import 'package:sidebarx/sidebarx.dart';
@@ -680,7 +681,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
   Widget _buildMeetingsContent() {
     return  Expanded(
       
-      child:MeetingPage()
+      child:
+      // MeetingPage()
+      
+   MeetingManagementPage()
     );
     
   }

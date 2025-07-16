@@ -6,7 +6,11 @@ const{authorizeAdmin} = require('../middleware/authAdmin');
 const router = express.Router();
 
 router.use(authenticateToken);
+
+
 // Meeting Routes
+router.get('/today',authenticateToken,authorizeAdmin ,MeetingController.getMeetingForToday);
+router.get('/', authorizeAdmin ,MeetingController.getAllMeetings);
 router.get('/', authorizeAdmin ,MeetingController.getAllMeetings);
 router.get('/:id', MeetingController.getMeetingById);
 router.get('/chama/:chamaId', MeetingController.getMeetingsByChamaId);

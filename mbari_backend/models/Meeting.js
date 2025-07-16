@@ -91,6 +91,61 @@ ORDER BY
         }
     }
 
+
+
+static async meetingForToday(chamaId) {
+    try {
+        const now = new Date();
+        const formattedDate = now.toISOString().split('T')[0]; // 'YYYY-MM-DD'
+
+        const [rows] = await pool.execute(`
+            SELECT * FROM meetings
+            WHERE chama_id = ? AND DATE(meeting_date) = ?
+        `, [chamaId, formattedDate]);
+
+        if (rows.length === 0) {
+            return {
+                success: false,
+                message: 'You have no meeting scheduled for today.',
+                meeting: null
+            };
+        }
+
+        // Optional: loop through and filter out ended ones if needed
+        const activeMeetings = rows.filter(meeting => {
+            const endTimeParts = meeting.end_time.split(':'); // 'HH:MM:SS'
+            const endDateTime = new Date(meeting.meeting_date);
+            endDateTime.setHours(endTimeParts[0], endTimeParts[1], endTimeParts[2] || 0);
+            return now < endDateTime;
+        });
+
+        if (activeMeetings.length === 0) {
+            const lastEnded = rows[rows.length - 1]; // assume last one ended most recently
+            const end = lastEnded.end_time?.slice(0, 5);
+            return {
+         
+                message: `Meeting already ended at ${end}`,
+                meeting: null
+            };
+        }
+
+        // Return first active meeting or all if needed
+        return {
+            success: true,
+            message: `You have ${activeMeetings.length} meeting(s) today.`,
+            meeting: activeMeetings[0] // or return full array
+        };
+
+    } catch (error) {
+        console.error('Error checking today\'s meeting:', error);
+        throw error;
+    }
+}
+
+
+
+
+
     static async update(id, meetingData) {
         try {
             const { chama_id, meeting_date, venue, agenda, status } = meetingData;
@@ -194,6 +249,8 @@ class MeetingAttendance {
                 INSERT INTO meeting_attendance (meeting_id, member_id, attendance_status, arrival_time, notes)
                 VALUES (?, ?, ?, ?, ?)
             `, [meeting_id, member_id, attendance_status, arrival_time, notes]);
+
+            
             return result.insertId;
         } catch (error) {
             throw error;
