@@ -27,9 +27,13 @@ const meetingFeeController = {
     async getByMeeting(req, res) {
         try {
             const fees = await MeetingFee.findByMeetingId(req.params.meetingId);
-            res.json(fees);
+            res.json({
+                success:true,
+                data:fees});
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            res.status(500).json({ 
+                success:false,
+                error: error.message });
         }
     },
 
@@ -48,16 +52,26 @@ const meetingFeeController = {
             if (!success) {
                 return res.status(404).json({ error: 'Meeting fee not found' });
             }
-            res.json({ message: 'Meeting fee updated successfully' });
+            res.json({
+                success:true,
+                message: 'Meeting fee updated successfully' });
         } catch (error) {
-            res.status(500).json({ error: error.message });
+            res.status(500).json({ 
+                success:false,
+                error: error.message });
         }
     },
 
     async updateStatus(req, res) {
         try {
             const { status, payment_date, collected_by } = req.body;
-            const success = await MeetingFee.updateStatus(req.params.id, status, payment_date, collected_by);
+            const notes ="";
+            if(status=="paid"){
+
+                notes = "transaction complete"
+            }
+        
+            const success = await MeetingFee.updateStatus(req.params.id, status, payment_date, collected_by,notes);
             if (!success) {
                 return res.status(404).json({ error: 'Meeting fee not found' });
             }

@@ -226,25 +226,25 @@ class MeetingFee {
 
     static async update(id, feeData) {
         try {
-            const { member_id, meeting_id, amount, payment_method_id, payment_date, status, collected_by, notes } = feeData;
+            const {payment_date, status, collected_by, notes } = feeData;
             const [result] = await pool.execute(`
                 UPDATE meeting_fees 
-                SET member_id = ?, meeting_id = ?, amount = ?, payment_method_id = ?, payment_date = ?, status = ?, collected_by = ?, notes = ?
+                SET payment_date = ?, status = ?, collected_by = ?, notes = ?
                 WHERE id = ?
-            `, [member_id, meeting_id, amount, payment_method_id, payment_date, status, collected_by, notes, id]);
+            `, [payment_date, status, collected_by, notes, id]);
             return result.affectedRows > 0;
         } catch (error) {
             throw error;
         }
     }
 
-    static async updateStatus(id, status, paymentDate = null, collectedBy = null) {
+    static async updateStatus(id, status, paymentDate = null, collectedBy = null, notes) {
         try {
             const [result] = await pool.execute(`
                 UPDATE meeting_fees 
-                SET status = ?, payment_date = ?, collected_by = ?
+                SET status = ?, payment_date = ?, collected_by = ?,  notes=?
                 WHERE id = ?
-            `, [status, paymentDate, collectedBy, id]);
+            `, [status, paymentDate, collectedBy, notes ,id]);
             return result.affectedRows > 0;
         } catch (error) {
             throw error;

@@ -5,6 +5,7 @@ import 'package:mbari/ADMIN/Meeting/Widgets.dart';
 import 'package:mbari/core/constants/constants.dart';
 import 'package:mbari/core/utils/Alerts.dart';
 import 'package:mbari/data/models/Meeting.dart';
+import 'package:mbari/data/models/MeetingFeeModel.dart';
 import 'package:mbari/widgets/MeetingLoadingWidget.dart';
 
 class MeetingManagementPage extends StatefulWidget {
@@ -85,11 +86,70 @@ class _MeetingManagementPageState extends State<MeetingManagementPage> {
   ];
 
   List<MeetingFeeRecord> meetingFees = [
-    MeetingFeeRecord(name: "John Doe", amount: 20.0, status: "Paid"),
-    MeetingFeeRecord(name: "Mike Johnson", amount: 20.0, status: "Paid"),
-    MeetingFeeRecord(name: "Sarah Wilson", amount: 20.0, status: "Pending"),
-    MeetingFeeRecord(name: "David Brown", amount: 20.0, status: "Pending"),
-    MeetingFeeRecord(name: "Alice Cooper", amount: 20.0, status: "Paid"),
+    MeetingFeeRecord(
+      id: 1,
+      memberId: 101,
+      meetingId: 201,
+      amount: 100.00,
+      paymentMethodId: 1,
+      paymentDate: '2025-07-16T10:00:00.000Z',
+      status: 'paid',
+      collectedBy: 'admin001',
+      notes: 'Paid in full',
+      createdAt: '2025-07-16T09:50:00.000Z',
+      memberName: 'John Doe',
+      meetingDate: '2025-07-17T14:00:00.000Z',
+      paymentMethod: 'cash',
+      collectedByName: 'Alice Admin',
+    ),
+    MeetingFeeRecord(
+      id: 2,
+      memberId: 102,
+      meetingId: 201,
+      amount: 100.00,
+      paymentMethodId: 2,
+      paymentDate: null,
+      status: 'pending',
+      collectedBy: null,
+      notes: 'Will pay at the meeting',
+      createdAt: '2025-07-16T10:10:00.000Z',
+      memberName: 'Sarah Wilson',
+      meetingDate: '2025-07-17T14:00:00.000Z',
+      paymentMethod: 'mpesa',
+      collectedByName: null,
+    ),
+    MeetingFeeRecord(
+      id: 3,
+      memberId: 103,
+      meetingId: 201,
+      amount: 100.00,
+      paymentMethodId: 1,
+      paymentDate: '2025-07-16T11:00:00.000Z',
+      status: 'paid',
+      collectedBy: 'admin002',
+      notes: 'Late payment',
+      createdAt: '2025-07-16T10:55:00.000Z',
+      memberName: 'David Brown',
+      meetingDate: '2025-07-17T14:00:00.000Z',
+      paymentMethod: 'cash',
+      collectedByName: 'Bob Admin',
+    ),
+    MeetingFeeRecord(
+      id: 4,
+      memberId: 104,
+      meetingId: 201,
+      amount: 100.00,
+      paymentMethodId: 3,
+      paymentDate: '2025-07-16T12:30:00.000Z',
+      status: 'paid',
+      collectedBy: 'admin003',
+      notes: 'Via bank deposit',
+      createdAt: '2025-07-16T12:00:00.000Z',
+      memberName: 'Alice Cooper',
+      meetingDate: '2025-07-17T14:00:00.000Z',
+      paymentMethod: 'bank',
+      collectedByName: 'Eve Admin',
+    ),
   ];
 
   List<FineRecord> fines = [
@@ -168,6 +228,7 @@ class _MeetingManagementPageState extends State<MeetingManagementPage> {
       final results = await comms.getRequests(endpoint: "meeting/today");
       if (results["rsp"]["success"]) {
         meeting = Meeting.fromJson(results["rsp"]["data"]);
+        print("=====================================${meeting.toJson()}====================================");
         showalert(
           success: true,
           context: context,
@@ -176,7 +237,7 @@ class _MeetingManagementPageState extends State<MeetingManagementPage> {
         );
         return true;
       } else {
-          showalert(
+        showalert(
           success: false,
           context: context,
           title: "No Meeting Found",
@@ -249,11 +310,11 @@ class _MeetingManagementPageState extends State<MeetingManagementPage> {
                         SizedBox(height: 20),
                         _buildQuickStats(),
                         SizedBox(height: 20),
-                       AttendanceTable(),
+                        AttendanceTable(),
                         SizedBox(height: 20),
                         _buildContributionsSection(),
                         SizedBox(height: 20),
-                          Meetingfees(),
+                        Meetingfees(),
                         SizedBox(height: 20),
                         _buildFinesSection(),
                         SizedBox(height: 20),
@@ -566,8 +627,6 @@ class _MeetingManagementPageState extends State<MeetingManagementPage> {
     );
   }
 
-
-
   Widget _buildContributionsSection() {
     double totalCollected = contributions
         .where((c) => c.status == "Paid")
@@ -584,7 +643,8 @@ class _MeetingManagementPageState extends State<MeetingManagementPage> {
         label: Text('Add Cash'),
         style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
       ),
-      child: MeetingWidgets.buildDataTable(context: context,
+      child: MeetingWidgets.buildDataTable(
+        context: context,
         columns: ['Name', 'Amount', 'Payment Method', 'Status'],
         rows:
             contributions
@@ -601,8 +661,6 @@ class _MeetingManagementPageState extends State<MeetingManagementPage> {
     );
   }
 
-
-
   Widget _buildFinesSection() {
     double totalCollected = fines
         .where((f) => f.status == "Paid")
@@ -613,7 +671,8 @@ class _MeetingManagementPageState extends State<MeetingManagementPage> {
       title: 'Fines',
       subtitle:
           'Total Collected: \$${totalCollected.toStringAsFixed(2)} | Expected: \$${totalExpected.toStringAsFixed(2)} | Payment to Bank',
-      child: MeetingWidgets.buildDataTable(context: context,
+      child: MeetingWidgets.buildDataTable(
+        context: context,
         columns: ['Name', 'Reason', 'Amount', 'Status'],
         rows:
             fines
@@ -641,7 +700,8 @@ class _MeetingManagementPageState extends State<MeetingManagementPage> {
       title: 'Outstanding Debts',
       subtitle:
           'Total Outstanding: \$${totalDebt.toStringAsFixed(2)} | Total Expected: \$${totalExpected.toStringAsFixed(2)}',
-      child: MeetingWidgets.buildDataTable(context: context,
+      child: MeetingWidgets.buildDataTable(
+        context: context,
         columns: [
           'Name',
           'Debt Type',
@@ -675,7 +735,8 @@ class _MeetingManagementPageState extends State<MeetingManagementPage> {
         label: Text('Add Event'),
         style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo),
       ),
-      child: MeetingWidgets.buildDataTable(context: context,
+      child: MeetingWidgets.buildDataTable(
+        context: context,
         columns: ['Event Name', 'Date', 'Amount', 'Description'],
         rows:
             events
@@ -709,10 +770,6 @@ class _MeetingManagementPageState extends State<MeetingManagementPage> {
       ),
     );
   }
-
- 
- 
-
 
   void _endMeeting() {
     showDialog(
@@ -830,103 +887,104 @@ class _MeetingManagementPageState extends State<MeetingManagementPage> {
     );
   }
 
-  void _showAddMeetingFeeDialog() {
-    String selectedMember = meetingFees.first.name;
-    double amount = 20.0;
+  // void _showAddMeetingFeeDialog() {
+  //   String selectedMember = meetingFees.first.name;
+  //   double amount = 20.0;
 
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Record Meeting Fee Payment'),
-          content: StatefulBuilder(
-            builder: (BuildContext context, StateSetter setState) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DropdownButtonFormField<String>(
-                    value: selectedMember,
-                    decoration: InputDecoration(
-                      labelText: 'Select Present Member',
-                    ),
-                    items:
-                        meetingFees
-                            .where(
-                              (fee) => attendance.any(
-                                (att) =>
-                                    att.name == fee.name &&
-                                    (att.status == "Present" ||
-                                        att.status == "Late"),
-                              ),
-                            )
-                            .map(
-                              (fee) => DropdownMenuItem(
-                                value: fee.name,
-                                child: Text(fee.name),
-                              ),
-                            )
-                            .toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        selectedMember = value!;
-                      });
-                    },
-                  ),
-                  SizedBox(height: 16),
-                  TextField(
-                    decoration: InputDecoration(labelText: 'Amount (\$)'),
-                    keyboardType: TextInputType.number,
-                    controller: TextEditingController(text: amount.toString()),
-                    onChanged: (value) {
-                      amount = double.tryParse(value) ?? 20.0;
-                    },
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Cash Payment Only',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ],
-              );
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (amount > 0) {
-                  setState(() {
-                    cashInHand += amount;
-                    // Update meeting fee record
-                    int index = meetingFees.indexWhere(
-                      (f) => f.name == selectedMember,
-                    );
-                    if (index != -1) {
-                      meetingFees[index] = MeetingFeeRecord(
-                        name: selectedMember,
-                        amount: amount,
-                        status: "Paid",
-                      );
-                    }
-                  });
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Meeting fee recorded successfully'),
-                    ),
-                  );
-                }
-              },
-              child: Text('Record'),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  //   showDialog(
+  //     context: context,
+  //     builder: (BuildContext context) {
+  //       return AlertDialog(
+  //         title: Text('Record Meeting Fee Payment'),
+  //         content: StatefulBuilder(
+  //           builder: (BuildContext context, StateSetter setState) {
+  //             return Column(
+  //               mainAxisSize: MainAxisSize.min,
+  //               children: [
+  //                 DropdownButtonFormField<String>(
+  //                   value: selectedMember,
+  //                   decoration: InputDecoration(
+  //                     labelText: 'Select Present Member',
+  //                   ),
+  //                   items:
+  //                       meetingFees
+  //                           .where(
+  //                             (fee) => attendance.any(
+  //                               (att) =>
+  //                                   att.name == fee.name &&
+  //                                   (att.status == "Present" ||
+  //                                       att.status == "Late"),
+  //                             ),
+  //                           )
+  //                           .map(
+  //                             (fee) => DropdownMenuItem(
+  //                               value: fee.name,
+  //                               child: Text(fee.name),
+  //                             ),
+  //                           )
+  //                           .toList(),
+  //                   onChanged: (value) {
+  //                     setState(() {
+  //                       selectedMember = value!;
+  //                     });
+  //                   },
+  //                 ),
+  //                 SizedBox(height: 16),
+  //                 TextField(
+  //                   decoration: InputDecoration(labelText: 'Amount (\$)'),
+  //                   keyboardType: TextInputType.number,
+  //                   controller: TextEditingController(text: amount.toString()),
+  //                   onChanged: (value) {
+  //                     amount = double.tryParse(value) ?? 20.0;
+  //                   },
+  //                 ),
+  //                 SizedBox(height: 8),
+  //                 Text(
+  //                   'Cash Payment Only',
+  //                   style: TextStyle(fontSize: 12, color: Colors.grey),
+  //                 ),
+  //               ],
+  //             );
+  //           },
+  //         ),
+  //         actions: [
+  //           TextButton(
+  //             onPressed: () => Navigator.of(context).pop(),
+  //             child: Text('Cancel'),
+  //           ),
+  //           ElevatedButton(
+  //             onPressed: () {
+  //               if (amount > 0) {
+  //                 setState(() {
+  //                   cashInHand += amount;
+  //                   // Update meeting fee record
+  //                   int index = meetingFees.indexWhere(
+  //                     (f) => f.name == selectedMember,
+  //                   );
+  //                   if (index != -1) {
+  //                     meetingFees[index] = MeetingFeeRecord(
+  //                       id: 23,
+  //                       memberName: selectedMember,
+  //                       amount: amount,
+  //                       status: "Paid",
+  //                     );
+  //                   }
+  //                 });
+  //                 Navigator.of(context).pop();
+  //                 ScaffoldMessenger.of(context).showSnackBar(
+  //                   SnackBar(
+  //                     content: Text('Meeting fee recorded successfully'),
+  //                   ),
+  //                 );
+  //               }
+  //             },
+  //             child: Text('Record'),
+  //           ),
+  //         ],
+  //       );
+  //     },
+  //   );
+  // }
 
   void _showAddEventDialog() {
     String eventName = '';
@@ -1040,18 +1098,6 @@ class ContributionRecord {
     required this.name,
     required this.amount,
     required this.paymentMethod,
-    required this.status,
-  });
-}
-
-class MeetingFeeRecord {
-  final String name;
-  final double amount;
-  final String status;
-
-  MeetingFeeRecord({
-    required this.name,
-    required this.amount,
     required this.status,
   });
 }
