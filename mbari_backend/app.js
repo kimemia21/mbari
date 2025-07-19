@@ -12,7 +12,10 @@ const memberDebtRoutes = require('./routes/memberDebts');
 const memberDepositRoutes = require('./routes/memberDeposits');
 const paymentTypeRoutes = require('./routes/paymentTypes');
 const paybillRoutes = require('./routes/paybills');
-const meetings = require("./routes/meeting")
+const meetings = require("./routes/meeting");
+const mpesaRoutes = require("./routes/mpesaRoutes");
+
+
 
 
 
@@ -34,6 +37,7 @@ app.use('/api/member-deposits', memberDepositRoutes);
 app.use('/api/payment-types', paymentTypeRoutes);
 app.use('/api/paybills', paybillRoutes);
 app.use("/api/meeting", meetings)
+app.use('/api/mpesa', mpesaRoutes);
 
 
 

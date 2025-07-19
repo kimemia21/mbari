@@ -207,8 +207,18 @@ class Paybill {
     }
 }
 
+
+
+const savePayment = (data, callback) => {
+  const sql = `INSERT INTO payments (phone, amount, mpesa_receipt_number, transaction_date, status)
+               VALUES (?, ?, ?, NOW(), ?)`;
+  db.query(sql, [data.phone, data.amount, data.receipt, 'Success'], callback);
+};
+
+
 module.exports = {
     PaymentType,
     Bank,
-    Paybill
+    Paybill,
+    savePayment
 };
