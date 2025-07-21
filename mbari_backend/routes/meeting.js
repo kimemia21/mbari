@@ -9,7 +9,7 @@ router.use(authenticateToken);
 
 
 // Meeting Routes
-router.get('/today',authenticateToken,authorizeAdmin ,MeetingController.getMeetingForToday);
+router.get('/today',authenticateToken ,MeetingController.getMeetingForToday);
 router.get('/', authorizeAdmin ,MeetingController.getAllMeetings);
 router.get('/', authorizeAdmin ,MeetingController.getAllMeetings);
 router.get('/:id', MeetingController.getMeetingById);
