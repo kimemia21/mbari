@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const { initializeDatabase } = require('./config/database');
+// const csrf = require('csurf');
+// const cookieParser = require('cookie-parser');
 
 // Route imports
 const chamaRoutes = require('./routes/chamaRoutes');
@@ -23,7 +25,9 @@ const app = express();
 
 // Middleware
 app.use(cors());
+// app.use(cookieParser());
 app.use(express.json());
+
 
 // Routes
 app.use('/api/chamas', chamaRoutes);
