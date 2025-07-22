@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:math';
 
+import 'package:mbari/core/constants/constants.dart';
+
 // Enhanced M-Pesa Payment Dialog with Premium UI
 class MpesaPaymentDialog extends StatefulWidget {
   final void Function(String amount, String phoneNumber)? onPaymentSuccess;
@@ -125,25 +127,43 @@ class _MpesaPaymentDialogState extends State<MpesaPaymentDialog>
       final data = {
         "phone_number": _phoneNumberController.text.trim(),
         "amount": _amountController.text.trim(),
-        "member_id": "123",
-        "meeting_id": "456",
+        "member_id": user.id,
+        "meeting_id": meeting.id,
       };
 
-      // Simulate API response
-      await Future.delayed(const Duration(seconds: 2));
+      final response = await comms.postRequest(
+        endpoint: "mpesa/stk-push",
+        data: data,
+      );
 
-      setState(() {
-        _currentState = PaymentState.waiting;
-        _checkoutRequestId = "ws_CO_${DateTime.now().millisecondsSinceEpoch}";
-      });
+      print("STK Push Response: ${response}");
 
-      _pulseController.repeat();
-      _startCountdown();
-      _startStatusPolling();
+      if (response["rsp"] != null && response["rsp"]["success"] == true) {
+        setState(() {
+          _currentState = PaymentState.waiting;
+          _checkoutRequestId = response["rsp"]["checkout_request_id"];
+        });
+
+        _pulseController.repeat();
+        _startCountdown();
+
+        Future.delayed(Duration(seconds: 2)).then((p0) {
+          _startStatusPolling();
+        });
+      } else {
+        setState(() {
+          _currentState = PaymentState.failed;
+          _errorMessage =
+              response["rsp"]?["message"] ??
+              "Payment request failed. Please try again.";
+        });
+      }
     } catch (e) {
+      print("Payment error: $e");
       setState(() {
         _currentState = PaymentState.failed;
-        _errorMessage = "Connection error. Please check your internet and try again.";
+        _errorMessage =
+            "Connection error. Please check your internet and try again.";
       });
     }
   }
@@ -167,12 +187,33 @@ class _MpesaPaymentDialogState extends State<MpesaPaymentDialog>
     if (_checkoutRequestId == null) return;
 
     try {
-      // Simulate status check - randomly succeed after some time
-      if (Random().nextBool() && _remainingSeconds < 40) {
-        _handlePaymentSuccess();
+      print("Checking payment status for: $_checkoutRequestId");
+
+      final response = await comms.getRequests(
+        endpoint: "mpesa/query/$_checkoutRequestId",
+      );
+
+      print("Status check response: ${response}");
+
+      if (response["success"] == true && response["rsp"] != null) {
+        final paymentData = response["rsp"];
+
+        // Check if payment was successful
+        if (paymentData["ResultCode"] == "0" ||
+            paymentData["status"] == "success") {
+          _handlePaymentSuccess();
+        } else if (paymentData["ResultCode"] != null &&
+            paymentData["ResultCode"] != "0") {
+          // Payment failed with specific error code
+          _handlePaymentFailure(paymentData["ResultDesc"] ?? "Payment failed");
+        }
+        // If still pending, continue polling (do nothing)
+      } else {
+        print("Status check failed or returned no data");
       }
     } catch (e) {
-      debugPrint("Status check error: $e");
+      print("Status check error: $e");
+      // Don't fail the payment on status check errors, just continue polling
     }
   }
 
@@ -196,6 +237,19 @@ class _MpesaPaymentDialogState extends State<MpesaPaymentDialog>
     );
   }
 
+  void _handlePaymentFailure(String errorMessage) {
+    if (_currentState != PaymentState.waiting) return;
+
+    setState(() {
+      _currentState = PaymentState.failed;
+      _errorMessage = errorMessage;
+    });
+
+    _pulseController.stop();
+    _progressController.stop();
+    _statusCheckTimer?.cancel();
+  }
+
   void _resetToForm() {
     setState(() {
       _currentState = PaymentState.form;
@@ -208,6 +262,25 @@ class _MpesaPaymentDialogState extends State<MpesaPaymentDialog>
     _progressController.reset();
     _scaleController.reset();
     _statusCheckTimer?.cancel();
+  }
+
+  // Optional: Method to get payment details by reference
+  Future<void> _getPaymentByReference(String reference) async {
+    try {
+      final response = await comms.getRequests(
+        endpoint: "mpesa/payment/$reference",
+      );
+
+      print("Payment details: ${response}");
+
+      if (response["success"] == true && response["rsp"] != null) {
+        final paymentData = response["rsp"];
+        // Handle payment data as needed
+        print("Payment found: ${paymentData}");
+      }
+    } catch (e) {
+      print("Error fetching payment details: $e");
+    }
   }
 
   @override
@@ -269,10 +342,7 @@ class _MpesaPaymentDialogState extends State<MpesaPaymentDialog>
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            headerColor.withOpacity(0.9),
-            headerColor,
-          ],
+          colors: [headerColor.withOpacity(0.9), headerColor],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -388,7 +458,8 @@ class _MpesaPaymentDialogState extends State<MpesaPaymentDialog>
             context,
             icon: Icons.info_outline_rounded,
             title: "How it works",
-            message: "Enter your details below. You'll receive a payment prompt on your phone within seconds.",
+            message:
+                "Enter your details below. You'll receive a payment prompt on your phone within seconds.",
             color: theme.colorScheme.primary,
           ),
           const SizedBox(height: 24),
@@ -420,7 +491,8 @@ class _MpesaPaymentDialogState extends State<MpesaPaymentDialog>
             context,
             icon: Icons.security_rounded,
             title: "Secure Payment",
-            message: "Your transaction is protected by M-Pesa's advanced security protocols",
+            message:
+                "Your transaction is protected by M-Pesa's advanced security protocols",
             color: theme.colorScheme.tertiary,
           ),
           const SizedBox(height: 32),
@@ -445,7 +517,10 @@ class _MpesaPaymentDialogState extends State<MpesaPaymentDialog>
             height: 80,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [colorScheme.primary, colorScheme.primary.withOpacity(0.7)],
+                colors: [
+                  colorScheme.primary,
+                  colorScheme.primary.withOpacity(0.7),
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -498,12 +573,16 @@ class _MpesaPaymentDialogState extends State<MpesaPaymentDialog>
             ),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: colorScheme.primary.withOpacity(0.3 + 0.3 * _pulseController.value),
+              color: colorScheme.primary.withOpacity(
+                0.3 + 0.3 * _pulseController.value,
+              ),
               width: 2,
             ),
             boxShadow: [
               BoxShadow(
-                color: colorScheme.primary.withOpacity(0.2 * _pulseController.value),
+                color: colorScheme.primary.withOpacity(
+                  0.2 * _pulseController.value,
+                ),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -521,7 +600,10 @@ class _MpesaPaymentDialogState extends State<MpesaPaymentDialog>
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [colorScheme.primary, colorScheme.primary.withOpacity(0.8)],
+                          colors: [
+                            colorScheme.primary,
+                            colorScheme.primary.withOpacity(0.8),
+                          ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -585,7 +667,9 @@ class _MpesaPaymentDialogState extends State<MpesaPaymentDialog>
                           child: LinearProgressIndicator(
                             value: 1 - _progressAnimation.value,
                             backgroundColor: colorScheme.surfaceVariant,
-                            valueColor: AlwaysStoppedAnimation(colorScheme.primary),
+                            valueColor: AlwaysStoppedAnimation(
+                              colorScheme.primary,
+                            ),
                             minHeight: 8,
                           ),
                         ),
@@ -608,7 +692,8 @@ class _MpesaPaymentDialogState extends State<MpesaPaymentDialog>
                 context,
                 icon: Icons.lock_rounded,
                 title: "Enter your M-Pesa PIN",
-                message: "Complete the payment by entering your M-Pesa PIN on your phone",
+                message:
+                    "Complete the payment by entering your M-Pesa PIN on your phone",
                 color: Colors.orange,
               ),
             ],
@@ -754,13 +839,11 @@ class _MpesaPaymentDialogState extends State<MpesaPaymentDialog>
             decoration: BoxDecoration(
               color: Colors.red.withOpacity(0.1),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.red.withOpacity(0.3),
-                width: 1,
-              ),
+              border: Border.all(color: Colors.red.withOpacity(0.3), width: 1),
             ),
             child: Text(
-              _errorMessage ?? "An unexpected error occurred. Please try again.",
+              _errorMessage ??
+                  "An unexpected error occurred. Please try again.",
               style: theme.textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
@@ -848,11 +931,7 @@ class _MpesaPaymentDialogState extends State<MpesaPaymentDialog>
                 ),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(
-                icon,
-                color: colorScheme.primary,
-                size: 20,
-              ),
+              child: Icon(icon, color: colorScheme.primary, size: 20),
             ),
             prefixText: prefix,
             prefixStyle: theme.textTheme.bodyLarge?.copyWith(
@@ -872,17 +951,11 @@ class _MpesaPaymentDialogState extends State<MpesaPaymentDialog>
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(
-                color: colorScheme.primary,
-                width: 2,
-              ),
+              borderSide: BorderSide(color: colorScheme.primary, width: 2),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(
-                color: Colors.red,
-                width: 1,
-              ),
+              borderSide: const BorderSide(color: Colors.red, width: 1),
             ),
             filled: true,
             fillColor: colorScheme.surfaceVariant.withOpacity(0.5),
@@ -905,18 +978,12 @@ class _MpesaPaymentDialogState extends State<MpesaPaymentDialog>
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            color.withOpacity(0.1),
-            color.withOpacity(0.05),
-          ],
+          colors: [color.withOpacity(0.1), color.withOpacity(0.05)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: color.withOpacity(0.3),
-          width: 1,
-        ),
+        border: Border.all(color: color.withOpacity(0.3), width: 1),
       ),
       child: Row(
         children: [
@@ -926,11 +993,7 @@ class _MpesaPaymentDialogState extends State<MpesaPaymentDialog>
               color: color.withOpacity(0.2),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 20,
-            ),
+            child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -1004,29 +1067,28 @@ class _MpesaPaymentDialogState extends State<MpesaPaymentDialog>
     );
   }
 
-
-String? _validateAmount(String? value) {
+  String? _validateAmount(String? value) {
     if (value == null || value.isEmpty) {
       return 'Please enter an amount';
     }
-    
+
     final amount = double.tryParse(value);
     if (amount == null) {
       return 'Please enter a valid amount';
     }
-    
+
     if (amount <= 0) {
       return 'Amount must be greater than 0';
     }
-    
+
     if (amount < 10) {
       return 'Minimum amount is KSH 10';
     }
-    
+
     if (amount > 300000) {
       return 'Maximum amount is KSH 300,000';
     }
-    
+
     return null;
   }
 
@@ -1037,7 +1099,7 @@ String? _validateAmount(String? value) {
 
     // Remove any spaces or special characters
     final cleanNumber = value.replaceAll(RegExp(r'[^\d]'), '');
-    
+
     // Check if it's a valid Kenyan mobile number
     if (cleanNumber.length == 10 && cleanNumber.startsWith('07')) {
       return null; // Valid format: 07XXXXXXXX
@@ -1046,7 +1108,7 @@ String? _validateAmount(String? value) {
     } else if (cleanNumber.length == 13 && cleanNumber.startsWith('+2547')) {
       return null; // Valid format: +2547XXXXXXXX
     }
-    
+
     return 'Please enter a valid Kenyan mobile number (e.g., 0712345678)';
   }
 
@@ -1100,16 +1162,8 @@ String? _validateAmount(String? value) {
 }
 
 // Payment State Enum
-enum PaymentState {
-  form,
-  processing,
-  waiting,
-  success,
-  failed,
-  timeout,
-}
+enum PaymentState { form, processing, waiting, success, failed, timeout }
 
-// Helper function to show the dialog
 Future<void> showMpesaPaymentDialog(
   BuildContext context, {
   void Function(String amount, String phoneNumber)? onPaymentSuccess,
@@ -1118,13 +1172,14 @@ Future<void> showMpesaPaymentDialog(
   return showDialog(
     context: context,
     barrierDismissible: false,
-    builder: (context) => Dialog(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      child: MpesaPaymentDialog(
-        onPaymentSuccess: onPaymentSuccess,
-        onPaymentFailure: onPaymentFailure,
-      ),
-    ),
+    builder:
+        (context) => Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: MpesaPaymentDialog(
+            onPaymentSuccess: onPaymentSuccess,
+            onPaymentFailure: onPaymentFailure,
+          ),
+        ),
   );
 }

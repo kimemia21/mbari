@@ -113,7 +113,7 @@ exports.stkPush = async (req, res) => {
       PartyA: formattedPhone,
       PartyB: process.env.MPESA_SHORTCODE,
       PhoneNumber: formattedPhone,
-      CallBackURL:"https://6353e83ee1ce.ngrok-free.app/api/mpesa/callback",
+      CallBackURL:"https://475d7224e969.ngrok-free.app/api/mpesa/callback",
       AccountReference: `CHAMA_${meeting_id}`,
       TransactionDesc: `Chama ${payment_type} payment`
     };
@@ -260,39 +260,150 @@ exports.queryPaymentStatus = async (req, res) => {
   try {
     const { checkout_request_id } = req.params;
     
-    const accessToken = await getAccessToken();
+    if (!checkout_request_id) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Checkout request ID is required' 
+      });
+    }
+
+    // First, check our database for the payment status
+    console.log(`Checking database for payment status: ${checkout_request_id}`);
     
-    // Generate timestamp
-    const now = new Date();
-    const timestamp = now.getFullYear().toString() +
-                     (now.getMonth() + 1).toString().padStart(2, '0') +
-                     now.getDate().toString().padStart(2, '0') +
-                     now.getHours().toString().padStart(2, '0') +
-                     now.getMinutes().toString().padStart(2, '0') +
-                     now.getSeconds().toString().padStart(2, '0');
+    const existingPayment = await Payment.getPaymentByCheckoutId(checkout_request_id);
+    
+    if (existingPayment) {
+      console.log('Payment found in database:', {
+        status: existingPayment.status,
+        result_code: existingPayment.result_code,
+        transaction_id: existingPayment.mpesa_transaction_id
+      });
 
-    const password = Buffer.from(
-      `${process.env.MPESA_SHORTCODE}${process.env.MPESA_PASSKEY}${timestamp}`
-    ).toString('base64');
+      // If payment is already completed (SUCCESS, FAILED, or CANCELLED), return database result
+      if (['SUCCESS', 'FAILED', 'CANCELLED'].includes(existingPayment.status)) {
+        return res.status(200).json({
+          success: true,
+          ResultCode: existingPayment.result_code || "0",
+          ResultDesc: existingPayment.result_desc || "Payment completed",
+          status: existingPayment.status.toLowerCase(),
+          CheckoutRequestID: checkout_request_id,
+          transaction_id: existingPayment.mpesa_transaction_id,
+          receipt_number: existingPayment.mpesa_receipt_number,
+          amount: existingPayment.amount,
+          phone_number: existingPayment.phone_number,
+          source: 'database'
+        });
+      }
+    }
 
-    const payload = {
-      BusinessShortCode: process.env.MPESA_SHORTCODE,
-      Password: password,
-      Timestamp: timestamp,
-      CheckoutRequestID: checkout_request_id
-    };
+    // If payment is still PENDING or not found in database, try M-Pesa API
+    console.log('Payment still pending or not found, querying M-Pesa API...');
+    
+    try {
+      const accessToken = await getAccessToken();
+      
+      // Generate timestamp
+      const now = new Date();
+      const timestamp = now.getFullYear().toString() +
+                       (now.getMonth() + 1).toString().padStart(2, '0') +
+                       now.getDate().toString().padStart(2, '0') +
+                       now.getHours().toString().padStart(2, '0') +
+                       now.getMinutes().toString().padStart(2, '0') +
+                       now.getSeconds().toString().padStart(2, '0');
 
-    const response = await axios.post(
-      'https://sandbox.safaricom.co.ke/mpesa/stkpushquery/v1/query',
-      payload,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
+      const password = Buffer.from(
+        `${process.env.MPESA_SHORTCODE}${process.env.MPESA_PASSKEY}${timestamp}`
+      ).toString('base64');
 
-    res.status(200).json(response.data);
+      const payload = {
+        BusinessShortCode: process.env.MPESA_SHORTCODE,
+        Password: password,
+        Timestamp: timestamp,
+        CheckoutRequestID: checkout_request_id
+      };
+
+      console.log('Querying M-Pesa API with payload:', {
+        ...payload,
+        Password: '[HIDDEN]'
+      });
+
+      const response = await axios.post(
+        'https://sandbox.safaricom.co.ke/mpesa/stkpushquery/v1/query',
+        payload,
+        { 
+          headers: { 
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 30000 // 30 second timeout
+        }
+      );
+
+      console.log('M-Pesa API Response:', response.data);
+
+      // If we get a response, update our database if needed
+      if (response.data.ResultCode === '0' && existingPayment && existingPayment.status === 'PENDING') {
+        await Payment.updatePaymentStatus({
+          mpesa_checkout_request_id: checkout_request_id,
+          status: 'SUCCESS',
+          result_code: '0',
+          result_desc: response.data.ResultDesc
+        });
+      } else if (response.data.ResultCode !== '0' && existingPayment && existingPayment.status === 'PENDING') {
+        await Payment.updatePaymentStatus({
+          mpesa_checkout_request_id: checkout_request_id,
+          status: response.data.ResultCode === '1032' ? 'CANCELLED' : 'FAILED',
+          result_code: response.data.ResultCode,
+          result_desc: response.data.ResultDesc
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        ...response.data,
+        source: 'mpesa_api'
+      });
+      
+    } catch (apiError) {
+      console.error('M-Pesa API Error:', apiError.response?.data || apiError.message);
+      
+      // If API fails but we have existing payment data, return what we have
+      if (existingPayment) {
+        console.log('API failed, returning database data');
+        return res.status(200).json({
+          success: true,
+          ResultCode: existingPayment.result_code || "pending",
+          ResultDesc: existingPayment.result_desc || "Payment is still being processed",
+          status: existingPayment.status?.toLowerCase() || 'pending',
+          CheckoutRequestID: checkout_request_id,
+          transaction_id: existingPayment.mpesa_transaction_id,
+          receipt_number: existingPayment.mpesa_receipt_number,
+          amount: existingPayment.amount,
+          phone_number: existingPayment.phone_number,
+          source: 'database_fallback',
+          api_error: 'M-Pesa API temporarily unavailable'
+        });
+      }
+      
+      // If no existing payment and API fails, return generic pending status
+      return res.status(200).json({
+        success: true,
+        ResultCode: "pending",
+        ResultDesc: "Payment is being processed. Please wait.",
+        status: "pending",
+        CheckoutRequestID: checkout_request_id,
+        source: 'fallback',
+        api_error: 'M-Pesa API temporarily unavailable'
+      });
+    }
     
   } catch (error) {
-    console.error('Query Error:', error.response?.data || error);
-    res.status(500).json({ error: 'Query failed' });
+    console.error('Query Payment Status Error:', error);
+    return res.status(500).json({ 
+      success: false,
+      error: 'Failed to query payment status',
+      details: error.message 
+    });
   }
 };
 
