@@ -148,8 +148,8 @@ class _AttendanceTableState extends State<AttendanceTable> {
     }
 
     setState(() {
-      isAttendanceOpen = canCheckIn;
-      isMeetingPast = isPast;
+      isAttendanceOpen = true;
+      isMeetingPast = false;
     });
   }
 

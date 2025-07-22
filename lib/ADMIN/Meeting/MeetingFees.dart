@@ -264,7 +264,7 @@ class _MeetingfeesState extends State<Meetingfees> {
           'Total Collected: \$${totalCollected.toStringAsFixed(2)} | Expected: \$${totalExpected.toStringAsFixed(2)} | Present Members Only',
       actionButton: ElevatedButton.icon(
         onPressed: () {
-          // _showAddMeetingFeeDialog();
+        // _showAddMeetingFeeDialog();
         },
         icon: Icon(Icons.add),
         label: Text('Record Payment'),

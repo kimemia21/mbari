@@ -36,6 +36,19 @@ class Contribution {
         }
     }
 
+
+    static async findMemberMeetingContributions(meetingId, memberId) {
+        try {
+            const [contributions] = await pool.execute(`
+                SELECT * FROM contributions WHERE meeting_id = ? AND member_id = ?
+            `, [meetingId, memberId]);
+            return contributions[0] || null;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+
     static async findByMeetingId(meetingId) {
         try {
             const [contributions] = await pool.execute(`
@@ -67,18 +80,41 @@ class Contribution {
         }
     }
 
-    static async create(contributionData) {
-        try {
-            const { member_id, meeting_id, amount = 500.00, payment_method_id, paybill_id, payment_reference, payment_date, status = 'pending' } = contributionData;
-            const [result] = await pool.execute(`
-                INSERT INTO contributions (member_id, meeting_id, amount, payment_method_id, paybill_id, payment_reference, payment_date, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            `, [member_id, meeting_id, amount, payment_method_id, paybill_id, payment_reference, payment_date, status]);
-            return result.insertId;
-        } catch (error) {
-            throw error;
-        }
+static async create(contributionData) {
+    try {
+        const { 
+            member_id, 
+            meeting_id, 
+            amount, 
+            contribution_type,
+            payment_method, 
+            paid_at
+        } = contributionData;
+        
+        const [result] = await pool.execute(`
+            INSERT INTO contributions (
+                member_id, 
+                meeting_id, 
+                amount, 
+                contribution_type,
+                payment_method, 
+                paid_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+        `, [
+            member_id, 
+            meeting_id, 
+            amount, 
+            contribution_type,
+            payment_method, 
+            paid_at
+        ]);
+        
+        return result.insertId;
+    } catch (error) {
+        throw error;
     }
+}
 
     static async update(id, contributionData) {
         try {
@@ -151,6 +187,19 @@ class MeetingFee {
             throw error;
         }
     }
+
+  static async findMemberinMeetingfees(meetingId, memberId) {
+        try {
+            const [fees] = await pool.execute(`
+               SELECT * FROM meeting_fees WHERE meeting_id = ? AND member_id = ?
+            `, [meetingId, memberId]);
+            return fees[0] || null;
+        } catch (error) {
+            throw error;
+        }
+
+    }
+
 
     static async findById(id) {
         try {
@@ -376,6 +425,21 @@ class Fine {
             throw error;
         }
     }
+
+
+
+    static async findMemberMeetingFines(meetingId, memberId) {
+        try {
+            const [fines] = await pool.execute(`
+                SELECT * FROM fines WHERE meeting_id = ? AND member_id = ?
+            `, [meetingId, memberId]);
+            return fines[0] || null;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+
 
     static async findByMemberId(memberId) {
         try {

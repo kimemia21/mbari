@@ -1,4 +1,5 @@
 const { pool } = require('../config/database');
+const { MeetingFee, Fine, Contribution } = require('./financialModels');
 
 // Meeting Model
 class Meeting {
@@ -169,6 +170,7 @@ static async meetingForToday(chamaId) {
         }
     }
 
+
     static async getUpcomingMeetings(chamaId) {
         try {
             const [meetings] = await pool.execute(`
@@ -194,6 +196,112 @@ static async meetingForToday(chamaId) {
             throw error;
         }
     }
+static async getMemberMeetingStatsSingleQuery(meetingId, memberId) {
+    console.log("Fetching member meeting stats for meetingId:", meetingId, "and memberId:", memberId);
+    try {
+        const query = `
+           SELECT 
+    m.id AS meeting_id,
+    
+    -- Attendance info
+    MAX(ma.attendance_status) AS attendance_status,
+    MAX(ma.arrival_time) AS arrival_time,
+    
+    -- Meeting fees
+    COALESCE(SUM(CASE WHEN mf.amount IS NOT NULL THEN mf.amount ELSE 0 END), 0) AS total_meeting_fees_paid,
+    COUNT(mf.id) AS meeting_fees_count,
+    
+    -- Fines
+    COALESCE(SUM(CASE WHEN f.amount IS NOT NULL THEN f.amount ELSE 0 END), 0) AS total_fines,
+    COUNT(f.id) AS fines_count,
+    
+    -- Contributions
+    COALESCE(SUM(CASE WHEN c.amount IS NOT NULL THEN c.amount ELSE 0 END), 0) AS total_contributions,
+    COUNT(c.id) AS contributions_count
+
+FROM meetings m
+LEFT JOIN meeting_attendance ma 
+    ON m.id = ma.meeting_id AND ma.member_id =?
+LEFT JOIN meeting_fees mf 
+    ON m.id = mf.meeting_id AND mf.member_id = ?
+LEFT JOIN fines f 
+    ON m.id = f.meeting_id AND f.member_id = ?
+LEFT JOIN contributions c 
+    ON m.id = c.meeting_id AND c.member_id = ?
+WHERE m.id = ?
+GROUP BY m.id; `;
+const [results] = await pool.execute(query, [memberId, memberId, memberId, memberId, meetingId]
+    );
+
+        // Handle case where no meeting is found
+        if (!results || results.length === 0) {
+            return {
+                meetingId,
+                memberId,
+                attendance: {
+                    status: 'Not Recorded',
+                    checkInTime: null,
+                    checkOutTime: null
+                },
+                meetingFees: {
+                    totalPaid: 0,
+                    count: 0
+                },
+                fines: {
+                    totalFines: 0,
+                    count: 0
+                },
+                contributions: {
+                    totalContributions: 0,
+                    count: 0
+                },
+                summary: {
+                    totalFinancialActivity: 0,
+                    outstandingFines: 0,
+                    netContribution: 0
+                }
+            };
+        }
+
+        const stats = results[0];
+
+        // Convert values with proper null handling
+        const totalMeetingFees = parseFloat(stats.total_meeting_fees_paid) || 0;
+        const totalFines = parseFloat(stats.total_fines) || 0;
+        const totalContributions = parseFloat(stats.total_contributions) || 0;
+
+        return {
+            meetingId,
+            memberId,
+            attendance: {
+                status: stats.attendance_status || 'Not Recorded',
+                checkInTime: stats.arrival_time || null,
+                checkOutTime: null
+            },
+            meetingFees: {
+                totalPaid: totalMeetingFees,
+                count: parseInt(stats.meeting_fees_count) || 0
+            },
+            fines: {
+                totalFines: totalFines,
+                count: parseInt(stats.fines_count) || 0
+            },
+            contributions: {
+                totalContributions: totalContributions,
+                count: parseInt(stats.contributions_count) || 0
+            },
+            summary: {
+                totalFinancialActivity: totalMeetingFees + totalContributions,
+                outstandingFines: totalFines,
+                netContribution: totalContributions - totalFines
+            }
+        };
+
+    } catch (error) {
+        console.error('Error fetching member meeting stats (single query):', error);
+        throw new Error('Failed to retrieve member meeting statistics');
+    }
+}
 }
 
 // Meeting Attendance Model
@@ -241,6 +349,20 @@ class MeetingAttendance {
             throw error;
         }
     }
+
+    static async findMemberinMeeting(meetingId, memberId) {
+        try {
+            const [attendance] = await pool.execute(`
+                SELECT * FROM meeting_attendance 
+                WHERE meeting_id = ? AND member_id = ?
+            `, [meetingId, memberId]);
+            return attendance[0] || null;
+        } catch (error) {
+            console.error('Error in findMemberinMeeting:', error);
+            throw error;
+        }
+    }
+
 
     static async create(attendanceData) {
         try {

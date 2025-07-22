@@ -31,28 +31,78 @@ class MpesaPayment {
   }
 
   // Update payment status from M-Pesa callback
-  static async updatePaymentStatus({
+ 
+static async updatePaymentStatus({
     mpesa_checkout_request_id,
     status,
     mpesa_transaction_id = null,
     mpesa_receipt_number = null,
     result_code = null,
     result_desc = null
-  }) {
+}) {
     const completed_at = status === 'SUCCESS' ? new Date() : null;
     
-    const sql = `UPDATE payments 
-                 SET status = ?, mpesa_transaction_id = ?, mpesa_receipt_number = ?, 
-                 result_code = ?, result_desc = ?, completed_at = ?
-                 WHERE mpesa_checkout_request_id = ?`;
+    // Start transaction to ensure data consistency
+    const connection = await pool.getConnection();
     
-    const [result] = await pool.execute(sql, [
-      status, mpesa_transaction_id, mpesa_receipt_number, 
-      result_code, result_desc, completed_at, mpesa_checkout_request_id
-    ]);
-    
-    return result.affectedRows > 0;
-  }
+    try {
+        await connection.beginTransaction();
+        
+        // Update payment status
+        const updateSql = `UPDATE payments 
+                          SET status = ?, mpesa_transaction_id = ?, mpesa_receipt_number = ?,
+                          result_code = ?, result_desc = ?, completed_at = ?
+                          WHERE mpesa_checkout_request_id = ?`;
+        
+        const [updateResult] = await connection.execute(updateSql, [
+            status, mpesa_transaction_id, mpesa_receipt_number,
+            result_code, result_desc, completed_at, mpesa_checkout_request_id
+        ]);
+        
+        // If payment was successful and payment record was updated, create contribution
+        if (status === 'SUCCESS' && updateResult.affectedRows > 0) {
+            // Get payment details to create contribution
+            const [paymentRows] = await connection.execute(
+                'SELECT member_id, meeting_id, amount, payment_type FROM payments WHERE mpesa_checkout_request_id = ?',
+                [mpesa_checkout_request_id]
+            );
+            
+            if (paymentRows.length > 0) {
+                const payment = paymentRows[0];
+                
+                // Create contribution record
+                const contributionSql = `INSERT INTO contributions (
+                    member_id, 
+                    meeting_id, 
+                    amount, 
+                    contribution_type,
+                    payment_method, 
+                    paid_at
+                ) VALUES (?, ?, ?, ?, ?, ?)`;
+                
+                await connection.execute(contributionSql, [
+                    payment.member_id,
+                    payment.meeting_id,
+                    payment.amount,
+                    payment.payment_type,
+                    'mpesa', // payment method
+                    completed_at
+                ]);
+
+            }
+        }
+        
+        await connection.commit();
+        return updateResult.affectedRows > 0;
+        
+    } catch (error) {
+        await connection.rollback();
+        throw error;
+    } finally {
+        connection.release();
+    }
+}
+
 
   // Get payment by checkout request ID
   static async getPaymentByCheckoutId(checkout_request_id) {

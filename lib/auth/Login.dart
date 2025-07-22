@@ -161,40 +161,50 @@ class _LoginState extends State<Login> {
           );
         }
 
-
         if (mounted) {
-
-
           showalert(
-          success: true,
-          context: context,
-          title: "Success",
-          subtitle: result["rsp"]["message"],
-        );
-      
-
-          SmoothNavigator.push(
-            context,
-            user.role == Role.member
-                ? ChamaHomePage()
-                : user.role == Role.admin
-                ? AdminDashboard()
-                : ChamaHomePage(),
-            type: TransitionType.slideUp,
-            duration: Duration(milliseconds: 400),
-            curve: Curves.easeInOutCubic,
+            success: true,
+            context: context,
+            title: "Success",
+            subtitle: result["rsp"]["message"],
           );
-        }
-      } else {
-        if (mounted) {
+
+          if (user.role == Role.admin) {
+            final choice = await showHomePageChoiceDialog(context);
+            if (choice == HomePageType.admin) {
+              SmoothNavigator.push(
+                context,
+
+                AdminDashboard(),
+
+                type: TransitionType.slideUp,
+                duration: Duration(milliseconds: 400),
+                curve: Curves.easeInOutCubic,
+              );
+            } else {
+              SmoothNavigator.push(
+                context,
+
+                ChamaHomePage(),
+
+                type: TransitionType.slideUp,
+                duration: Duration(milliseconds: 400),
+                curve: Curves.easeInOutCubic,
+              );
+            }
+          }
          
-          showalert(
-          success: false,
-          context: context,
-          title: "Failed",
-          subtitle: result["rsp"]["error"],
-        );
-      
+        else {
+          SmoothNavigator.push(
+                context,
+
+                ChamaHomePage(),
+
+                type: TransitionType.slideUp,
+                duration: Duration(milliseconds: 400),
+                curve: Curves.easeInOutCubic,
+              );
+          }
         }
       }
     } catch (e) {

@@ -2,6 +2,7 @@ const express = require('express');
 const { MeetingController, MeetingAttendanceController, MeetingFinancialsController } = require('../controllers/meetingController');
 const { authenticateToken } = require('../middleware/auth');
 const{authorizeAdmin} = require('../middleware/authAdmin');
+const { route } = require('./mpesaRoutes');
 
 const router = express.Router();
 
@@ -11,8 +12,8 @@ router.use(authenticateToken);
 // Meeting Routes
 router.get('/today',authenticateToken ,MeetingController.getMeetingForToday);
 router.get('/', authorizeAdmin ,MeetingController.getAllMeetings);
-router.get('/', authorizeAdmin ,MeetingController.getAllMeetings);
 router.get('/:id', MeetingController.getMeetingById);
+router.get("/member/:meetingId", MeetingController.getMemberMeetingStats);
 router.get('/chama/:chamaId', MeetingController.getMeetingsByChamaId);
 router.post('',authorizeAdmin,MeetingController.createMeeting);
 router.put('/:id',authorizeAdmin , MeetingController.updateMeeting);

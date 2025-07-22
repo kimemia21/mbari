@@ -113,7 +113,7 @@ exports.stkPush = async (req, res) => {
       PartyA: formattedPhone,
       PartyB: process.env.MPESA_SHORTCODE,
       PhoneNumber: formattedPhone,
-      CallBackURL:"https://475d7224e969.ngrok-free.app/api/mpesa/callback",
+      CallBackURL:"https://bc5e477a873a.ngrok-free.app/api/mpesa/callback",
       AccountReference: `CHAMA_${meeting_id}`,
       TransactionDesc: `Chama ${payment_type} payment`
     };

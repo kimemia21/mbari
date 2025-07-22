@@ -147,7 +147,7 @@ class _MpesaPaymentDialogState extends State<MpesaPaymentDialog>
         _pulseController.repeat();
         _startCountdown();
 
-        Future.delayed(Duration(seconds: 2)).then((p0) {
+        Future.delayed(Duration(seconds:10)).then((p0) {
           _startStatusPolling();
         });
       } else {

@@ -470,3 +470,27 @@ class _ExampleUsageState extends State<ExampleUsage> {
     );
   }
 }
+
+enum HomePageType { admin, user }
+
+Future<HomePageType?> showHomePageChoiceDialog(BuildContext context) {
+  return showDialog<HomePageType>(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text("Choose Home Page"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: HomePageType.values.map((type) {
+            return ListTile(
+              title: Text(type.name.toUpperCase()),
+              onTap: () {
+                Navigator.pop(context, type);
+              },
+            );
+          }).toList(),
+        ),
+      );
+    },
+  );
+}

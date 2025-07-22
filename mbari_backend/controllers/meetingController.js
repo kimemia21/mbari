@@ -3,10 +3,6 @@ const { Meeting, MeetingAttendance, MeetingFinancials } = require('../models/Mee
 
 // Meeting Controller
 class MeetingController {
-
-
-
-
     static async getAllMeetings(req, res) {
         try {
             const meetings = await Meeting.findAll();
@@ -23,6 +19,33 @@ class MeetingController {
             });
         }
     }
+
+static async getMemberMeetingStats(req, res) {
+    try {
+        const  {meetingId} = req.params; 
+        const memberId = req.user.id; // Assuming user ID is stored in req.user
+        const stats = await Meeting.getMemberMeetingStatsSingleQuery(meetingId, memberId);
+        if (!stats) {   
+            return res.status(404).json({
+                success: false,
+                message: 'No statistics found for this member in the specified meeting'
+            });
+        }
+        res.json({
+            success: true,
+            data: stats,
+            message: 'Member meeting statistics retrieved successfully'
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error retrieving member meeting statistics',
+            error: error.message
+
+        });
+    }
+}
+
 
 
 static async getMeetingForToday(req, res) {
