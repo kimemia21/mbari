@@ -105,155 +105,6 @@ class _MeetingDetailsPageState extends State<MeetingDetailsPage> {
     }
   }
 
-  void _showMpesaPaymentDialog(
-    BuildContext context, {
-    required String paymentType,
-    required double suggestedAmount,
-  }) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    // Pre-fill the amount controller with suggested amount
-    _amountController.text = suggestedAmount.toInt().toString();
-
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          backgroundColor: colorScheme.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Text(
-            'Pay $paymentType via M-Pesa',
-            style: theme.textTheme.titleLarge?.copyWith(
-              color: colorScheme.onSurface,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: _amountController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: 'Amount (KSH)',
-                    hintText: 'e.g., 500',
-                    prefixIcon: Icon(
-                      Icons.attach_money_rounded,
-                      color: colorScheme.primary,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: colorScheme.primary,
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: colorScheme.onSurface,
-                  ),
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _phoneNumberController,
-                  keyboardType: TextInputType.phone,
-                  decoration: InputDecoration(
-                    labelText: 'Phone Number (e.g., 2547XXXXXXXX)',
-                    hintText: 'e.g., 2547XXXXXXXX',
-                    prefixIcon: Icon(
-                      Icons.phone_android_rounded,
-                      color: colorScheme.primary,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: colorScheme.primary,
-                        width: 2,
-                      ),
-                    ),
-                  ),
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: colorScheme.onSurface,
-                  ),
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                _amountController.clear();
-                _phoneNumberController.clear();
-                Navigator.of(dialogContext).pop();
-              },
-              child: Text(
-                'Cancel',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final amount = double.tryParse(_amountController.text);
-                final phoneNumber = _phoneNumberController.text;
-
-                if (amount != null && phoneNumber.isNotEmpty) {
-                  showalert(
-                    success: true,
-                    context: context,
-                    title: "M-Pesa Push Initiated",
-                    subtitle:
-                        "Request sent to $phoneNumber for KSH ${amount.toStringAsFixed(2)}. Check your phone.",
-                  );
-                  Navigator.of(dialogContext).pop();
-                  _amountController.clear();
-                  _phoneNumberController.clear();
-
-                  // Refresh meeting details after payment
-                  setState(() {
-                    _meetingDetailsFuture = _getMeetingDetails();
-                  });
-                } else {
-                  showalert(
-                    success: false,
-                    context: context,
-                    title: "Missing Details",
-                    subtitle:
-                        "Please enter both amount and a valid phone number.",
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: colorScheme.primary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: Text(
-                'Pay Now',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: colorScheme.onPrimary,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -284,6 +135,7 @@ class _MeetingDetailsPageState extends State<MeetingDetailsPage> {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
+          _fetchMeetingData();
           _getMeetingDetails();
         },
 
@@ -518,15 +370,7 @@ class _MeetingDetailsPageState extends State<MeetingDetailsPage> {
           icon: Icons.event_note,
           color: AppColors.info,
           onTap:
-              () => showModalBottomSheet(
-                showDragHandle: true,
-                enableDrag: true,
-                context: context,
-                isScrollControlled: true,
-                builder: (context) {
-                  return MpesaPaymentDialog();
-                },
-              ),
+              (){},
           theme: theme,
         ),
       );
@@ -549,10 +393,24 @@ class _MeetingDetailsPageState extends State<MeetingDetailsPage> {
           icon: Icons.savings,
           color: colorScheme.primary,
           onTap:
-              () => _showMpesaPaymentDialog(
-                context,
-                paymentType: 'Monthly Contribution',
-                suggestedAmount: remaining,
+              () =>showModalBottomSheet(
+                showDragHandle: true,
+                enableDrag: true,
+                context: context,
+                isScrollControlled: true,
+                builder: (context) {
+                  return MpesaPaymentDialog(
+                    onPaymentSuccess: (status) {
+                      if (status) {
+                        // Refresh contributions after successful payment
+                        setState(() {
+                          _fetchMeetingData();
+                          _getMeetingDetails();
+                        });
+                      }
+                    },
+                  );
+                },
               ),
           theme: theme,
         ),
@@ -570,11 +428,14 @@ class _MeetingDetailsPageState extends State<MeetingDetailsPage> {
           icon: Icons.warning_amber,
           color: AppColors.error,
           onTap:
-              () => _showMpesaPaymentDialog(
-                context,
-                paymentType: 'Fine',
-                suggestedAmount:
-                    meetingDetails.summary.outstandingFines.toDouble(),
+              () => showModalBottomSheet(
+                showDragHandle: true,
+                enableDrag: true,
+                context: context,
+                isScrollControlled: true,
+                builder: (context) {
+                  return MpesaPaymentDialog();
+                },
               ),
           theme: theme,
           subtitle: 'Total outstanding fines',

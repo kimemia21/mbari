@@ -7,7 +7,7 @@ import 'package:mbari/core/constants/constants.dart';
 
 // Enhanced M-Pesa Payment Dialog with Premium UI
 class MpesaPaymentDialog extends StatefulWidget {
-  final void Function(String amount, String phoneNumber)? onPaymentSuccess;
+  final void Function(bool status)? onPaymentSuccess;
   final void Function(String errorMessage)? onPaymentFailure;
 
   const MpesaPaymentDialog({
@@ -232,8 +232,7 @@ class _MpesaPaymentDialogState extends State<MpesaPaymentDialog>
     HapticFeedback.lightImpact();
 
     widget.onPaymentSuccess?.call(
-      _amountController.text,
-      _phoneNumberController.text,
+     true
     );
   }
 
@@ -1177,7 +1176,7 @@ Future<void> showMpesaPaymentDialog(
           backgroundColor: Colors.transparent,
           elevation: 0,
           child: MpesaPaymentDialog(
-            onPaymentSuccess: onPaymentSuccess,
+            onPaymentSuccess:(p0){},
             onPaymentFailure: onPaymentFailure,
           ),
         ),
