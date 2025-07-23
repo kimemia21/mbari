@@ -6,10 +6,10 @@ class AppColors {
 
   // --- Core Palette ---
 
-  // Primary Accent - A rich, inviting blue-violet for a modern, trustworthy feel
-  static const Color primary = Color(0xFF6B4EEF); // A vibrant yet deep blue-violet
-  static const Color primaryDark = Color(0xFF5B3DD8); // Slightly darker for depth
-  static const Color primaryLight = Color(0xFF8C79F6); // Lighter for accents/hover states
+  // Primary Accent - A professional, trustworthy fintech blue
+  static const Color primary = Color(0xFF0066CC); // A strong, professional blue
+  static const Color primaryDark = Color(0xFF0052A3); // Slightly darker for depth
+  static const Color primaryLight = Color(0xFF3385FF); // Lighter for accents/hover states
 
   // Secondary Accent - A complementary, slightly warmer tone for contrast and energy
   static const Color secondary = Color(0xFFFC7057); // A lively coral/terracotta for highlights
@@ -96,8 +96,8 @@ class AppColors {
   static const Color chartColor2 = secondary;
   static const Color chartColor3 = success;
   static const Color chartColor4 = info;
-  static const Color chartColor5 = Color(0xFFB57EDC); // A new, softer purple tone
-  static const Color chartColor6 = Color(0xFF73C2C7); // A new, refreshing teal
+  static const Color chartColor5 = Color(0xFFFF9800); // Kept as soft orange
+  static const Color chartColor6 = Color(0xFF73C2C7); // Kept as refreshing teal
 
   static Color getFinancialColor(double value) {
     if (value > 0) return success;

@@ -869,3 +869,304 @@ ORDER BY created_at DESC;
 
 SELECT 'COMPLETE FLOW SETUP FINISHED' AS status;
 SELECT 'Wait 1-2 minutes and check the monitoring commands above' AS instruction;
+
+
+
+
+
+-- for updating the meetingor a users total contributions 
+-- =====================================================
+-- CLEANUP CODE - Run this first to remove existing objects
+-- =====================================================
+
+-- Drop existing triggers (if they exist)
+DROP TRIGGER IF EXISTS tr_contributions_after_insert;
+DROP TRIGGER IF EXISTS tr_contributions_after_update;
+DROP TRIGGER IF EXISTS tr_contributions_after_delete;
+DROP TRIGGER IF EXISTS tr_member_contributions_after_insert;
+DROP TRIGGER IF EXISTS tr_member_contributions_after_update;
+DROP TRIGGER IF EXISTS tr_member_contributions_after_delete;
+
+-- Drop existing procedures (if they exist)
+DROP PROCEDURE IF EXISTS UpdateMemberDeposits;
+DROP PROCEDURE IF EXISTS RecalculateAllMemberDeposits;
+DROP PROCEDURE IF EXISTS AddContribution;
+DROP PROCEDURE IF EXISTS AddMemberContribution;
+
+-- =====================================================
+-- RECREATE ALL OBJECTS WITH CORRECT TABLE NAME
+-- =====================================================
+
+-- Create stored procedure to update member deposits
+DELIMITER $$
+
+CREATE PROCEDURE UpdateMemberDeposits(
+    IN p_member_id INT,
+    IN p_chama_id INT
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+    
+    -- Calculate totals from contributions table
+    INSERT INTO member_deposits (
+        member_id, 
+        chama_id, 
+        total_contributions, 
+        total_meeting_fees, 
+        total_fines, 
+        last_updated
+    )
+    SELECT 
+        p_member_id,
+        p_chama_id,
+        COALESCE(SUM(CASE WHEN contribution_type = 'contribution' THEN amount ELSE 0 END), 0) as total_contributions,
+        0.00 as total_meeting_fees,
+        COALESCE(SUM(CASE WHEN contribution_type = 'fine' THEN amount ELSE 0 END), 0) as total_fines,
+        NOW()
+    FROM contributions 
+    WHERE member_id = p_member_id
+    GROUP BY member_id
+    
+    ON DUPLICATE KEY UPDATE
+        total_contributions = COALESCE(VALUES(total_contributions), 0),
+        total_fines = COALESCE(VALUES(total_fines), 0),
+        last_updated = NOW();
+    
+    COMMIT;
+END$$
+
+DELIMITER ;
+
+-- =====================================================
+-- TRIGGERS FOR AUTOMATIC DEPOSIT UPDATES
+-- =====================================================
+
+-- Trigger for INSERT operations
+DELIMITER $$
+
+CREATE TRIGGER tr_contributions_after_insert
+    AFTER INSERT ON contributions
+    FOR EACH ROW
+BEGIN
+    DECLARE v_chama_id INT;
+    
+    -- Get chama_id from meetings table or members table
+    SELECT chama_id INTO v_chama_id 
+    FROM meetings 
+    WHERE id = NEW.meeting_id
+    LIMIT 1;
+    
+    -- If chama_id not found from meetings, try to get from members table
+    IF v_chama_id IS NULL THEN
+        SELECT chama_id INTO v_chama_id
+        FROM members 
+        WHERE id = NEW.member_id
+        LIMIT 1;
+    END IF;
+    
+    -- Update member deposits
+    IF v_chama_id IS NOT NULL THEN
+        CALL UpdateMemberDeposits(NEW.member_id, v_chama_id);
+    END IF;
+END$$
+
+DELIMITER ;
+
+-- Trigger for UPDATE operations
+DELIMITER $$
+
+CREATE TRIGGER tr_contributions_after_update
+    AFTER UPDATE ON contributions
+    FOR EACH ROW
+BEGIN
+    DECLARE v_chama_id INT;
+    
+    -- Get chama_id
+    SELECT chama_id INTO v_chama_id 
+    FROM meetings 
+    WHERE id = NEW.meeting_id
+    LIMIT 1;
+    
+    IF v_chama_id IS NULL THEN
+        SELECT chama_id INTO v_chama_id
+        FROM members 
+        WHERE id = NEW.member_id
+        LIMIT 1;
+    END IF;
+    
+    -- Update deposits for new member_id
+    IF v_chama_id IS NOT NULL THEN
+        CALL UpdateMemberDeposits(NEW.member_id, v_chama_id);
+        
+        -- If member_id changed, also update old member's deposits
+        IF OLD.member_id != NEW.member_id THEN
+            CALL UpdateMemberDeposits(OLD.member_id, v_chama_id);
+        END IF;
+    END IF;
+END$$
+
+DELIMITER ;
+
+-- Trigger for DELETE operations
+DELIMITER $$
+
+CREATE TRIGGER tr_contributions_after_delete
+    AFTER DELETE ON contributions
+    FOR EACH ROW
+BEGIN
+    DECLARE v_chama_id INT;
+    
+    -- Get chama_id
+    SELECT chama_id INTO v_chama_id 
+    FROM meetings 
+    WHERE id = OLD.meeting_id
+    LIMIT 1;
+    
+    IF v_chama_id IS NULL THEN
+        SELECT chama_id INTO v_chama_id
+        FROM members 
+        WHERE id = OLD.member_id
+        LIMIT 1;
+    END IF;
+    
+    -- Update member deposits
+    IF v_chama_id IS NOT NULL THEN
+        CALL UpdateMemberDeposits(OLD.member_id, v_chama_id);
+    END IF;
+END$$
+
+DELIMITER ;
+
+-- =====================================================
+-- UTILITY PROCEDURES
+-- =====================================================
+
+-- Procedure to manually recalculate all member deposits
+DELIMITER $$
+
+CREATE PROCEDURE RecalculateAllMemberDeposits()
+BEGIN
+    DECLARE done INT DEFAULT FALSE;
+    DECLARE v_member_id INT;
+    DECLARE v_chama_id INT;
+    
+    DECLARE member_cursor CURSOR FOR
+        SELECT DISTINCT c.member_id, m.chama_id
+        FROM contributions c
+        JOIN members m ON c.member_id = m.id;
+    
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+    
+    OPEN member_cursor;
+    
+    read_loop: LOOP
+        FETCH member_cursor INTO v_member_id, v_chama_id;
+        IF done THEN
+            LEAVE read_loop;
+        END IF;
+        
+        CALL UpdateMemberDeposits(v_member_id, v_chama_id);
+    END LOOP;
+    
+    CLOSE member_cursor;
+END$$
+
+DELIMITER ;
+
+-- =====================================================
+-- SAFE CONTRIBUTION INSERTION PROCEDURE
+-- =====================================================
+
+DELIMITER $$
+
+CREATE PROCEDURE AddContribution(
+    IN p_member_id INT,
+    IN p_meeting_id INT,
+    IN p_amount DECIMAL(10,2),
+    IN p_contribution_type ENUM('contribution','fine','extra'),
+    IN p_payment_method VARCHAR(50)
+)
+BEGIN
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+    
+    -- Validate inputs
+    IF p_amount <= 0 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Amount must be greater than 0';
+    END IF;
+    
+    IF p_member_id IS NULL OR p_meeting_id IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Member ID and Meeting ID are required';
+    END IF;
+    
+    -- Insert the contribution
+    INSERT INTO contributions (
+        member_id,
+        meeting_id,
+        amount,
+        contribution_type,
+        payment_method,
+        paid_at,
+        created_at
+    ) VALUES (
+        p_member_id,
+        p_meeting_id,
+        p_amount,
+        p_contribution_type,
+        COALESCE(p_payment_method, 'cash'),
+        NOW(),
+        NOW()
+    );
+    
+    COMMIT;
+    
+    -- The trigger will automatically update member_deposits
+    SELECT 'Contribution added successfully' as message;
+END$$
+
+DELIMITER ;
+
+-- =====================================================
+-- EXAMPLE USAGE
+-- =====================================================
+
+/*
+-- Test the system
+CALL AddContribution(16, 49, 150.00, 'contribution', 'mpesa');
+CALL AddContribution(16, 49, 50.00, 'fine', 'cash');
+
+-- Manually recalculate all deposits if needed
+CALL RecalculateAllMemberDeposits();
+
+-- View updated deposits
+SELECT * FROM member_deposits WHERE member_id = 16;
+*/
+
+-- =====================================================
+-- VERIFICATION QUERIES
+-- =====================================================
+
+-- Query to verify data consistency
+SELECT 
+    md.member_id,
+    md.total_contributions as deposit_total,
+    COALESCE(SUM(CASE WHEN c.contribution_type = 'contribution' THEN c.amount ELSE 0 END), 0) as calculated_contributions,
+    md.total_fines as deposit_fines,
+    COALESCE(SUM(CASE WHEN c.contribution_type = 'fine' THEN c.amount ELSE 0 END), 0) as calculated_fines
+FROM member_deposits md
+LEFT JOIN contributions c ON md.member_id = c.member_id
+GROUP BY md.member_id, md.total_contributions, md.total_fines
+HAVING 
+    deposit_total != calculated_contributions 
+    OR deposit_fines != calculated_fines;

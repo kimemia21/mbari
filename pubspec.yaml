@@ -45,6 +45,7 @@ dependencies:
   status_alert: ^1.0.1
   sidebarx: ^0.17.1
   intl: ^0.20.2
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

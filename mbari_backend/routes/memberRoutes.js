@@ -9,7 +9,7 @@ router.post('/register', memberController.register);
 router.post('/login', memberController.login);
 router.get('/profile', authenticateToken, memberController.getProfile);
 router.get('/dashboard', authenticateToken, memberController.getDashboard);
-router.get('/',authenticateToken,authorizeAdmin,memberController.getAllUsers);
+router.get('/',authenticateToken,memberController.getAllUsers);
 
 module.exports = router;
 

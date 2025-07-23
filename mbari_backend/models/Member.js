@@ -127,18 +127,31 @@ class Member {
   }
 
   static async getMemberStats(memberId) {
+    console.log("Fetching stats for member:", memberId);
     try {
       const [stats] = await pool.execute(
         `
-                SELECT 
-                    COALESCE(SUM(c.amount), 0) as total_contributed,
-                    COUNT(c.id) as total_contributions,
-                    COALESCE(SUM(CASE WHEN d.is_paid = FALSE THEN d.amount ELSE 0 END), 0) as outstanding_debt
-                FROM members m
-                LEFT JOIN contributions c ON m.id = c.member_id
-                LEFT JOIN member_debts d ON m.id = d.member_id
-                WHERE m.id = ?
-                GROUP BY m.id
+              SELECT 
+    COALESCE(c.total_contributed, 0) AS total_contributed,
+    COALESCE(c.total_contributions, 0) AS total_contributions,
+    COALESCE(d.outstanding_debt, 0) AS outstanding_debt
+FROM members m
+LEFT JOIN (
+    SELECT member_id, 
+           SUM(amount) AS total_contributed,
+           COUNT(*) AS total_contributions
+    FROM contributions
+    GROUP BY member_id
+) c ON m.id = c.member_id
+LEFT JOIN (
+    SELECT member_id,
+           SUM(amount) AS outstanding_debt
+    FROM member_debts
+    WHERE is_paid = FALSE
+    GROUP BY member_id
+) d ON m.id = d.member_id
+WHERE m.id = ?;
+
             `,
         [memberId]
       );
