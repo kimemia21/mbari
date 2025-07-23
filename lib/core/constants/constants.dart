@@ -7,7 +7,7 @@ final Comms comms = Comms();
 
 late UserPreferences userPrefs;
 
-final baseUrl = "http://192.168.100.241:3000/api";
+final baseUrl = "http://192.168.88.206:3000/api";
 User user = User.empty();
 
 Meeting meeting = Meeting.empty();

@@ -25,11 +25,17 @@ const contributionController = {
     },
 
     async getByMeeting(req, res) {
+        console.log("Fetching contributions for meeting:", req.params.meetingId);
         try {
+            console.log("Fetching contributions for meeting:", req.params.meetingId);
             const contributions = await Contribution.findByMeetingId(req.params.meetingId);
             res.json(contributions);
         } catch (error) {
-            res.status(500).json({ error: error.message });
+
+            res.status(500).json({ 
+                 success: false,
+                error: error.message ,
+                message:error.message});
         }
     },
 

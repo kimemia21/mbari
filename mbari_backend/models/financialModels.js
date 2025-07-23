@@ -5,13 +5,11 @@ class Contribution {
     static async findAll() {
         try {
             const [contributions] = await pool.execute(`
-                SELECT c.*, m.name as member_name, mt.meeting_date, p.name as payment_method, pb.paybill_number
+                SELECT c.*, m.name as member_name, mt.meeting_date
                 FROM contributions c
                 LEFT JOIN members m ON c.member_id = m.id
                 LEFT JOIN meetings mt ON c.meeting_id = mt.id
-                LEFT JOIN payment_types p ON c.payment_method_id = p.id
-                LEFT JOIN paybills pb ON c.paybill_id = pb.id
-                ORDER BY mt.meeting_date DESC
+                ORDER BY mt.meeting_date DESC, c.created_at DESC
             `);
             return contributions;
         } catch (error) {
@@ -22,12 +20,10 @@ class Contribution {
     static async findById(id) {
         try {
             const [contributions] = await pool.execute(`
-                SELECT c.*, m.name as member_name, mt.meeting_date, p.name as payment_method, pb.paybill_number
+                SELECT c.*, m.name as member_name, mt.meeting_date
                 FROM contributions c
                 LEFT JOIN members m ON c.member_id = m.id
                 LEFT JOIN meetings mt ON c.meeting_id = mt.id
-                LEFT JOIN payment_types p ON c.payment_method_id = p.id
-                LEFT JOIN paybills pb ON c.paybill_id = pb.id
                 WHERE c.id = ?
             `, [id]);
             return contributions[0] || null;
@@ -35,7 +31,6 @@ class Contribution {
             throw error;
         }
     }
-
 
     static async findMemberMeetingContributions(meetingId, memberId) {
         try {
@@ -47,18 +42,27 @@ class Contribution {
             throw error;
         }
     }
-
-
-    static async findByMeetingId(meetingId) {
+static async findByMeetingId(meetingId) {
+    console.log("Finding contributions for meetingId:", meetingId);
         try {
-            const [contributions] = await pool.execute(`
-                SELECT c.*, m.name as member_name, p.name as payment_method
+            const [data] = await pool.execute(`
+                SELECT c.*, m.name as member_name
                 FROM contributions c
                 LEFT JOIN members m ON c.member_id = m.id
-                LEFT JOIN payment_types p ON c.payment_method_id = p.id
                 WHERE c.meeting_id = ?
-            `, [meetingId]);
-            return contributions;
+                ORDER BY c.created_at DESC
+            `, [49]);
+
+            // Calculate total amount
+            const total = data.reduce((sum, contribution) => {
+                return sum + parseFloat(contribution.amount || 0);
+            }, 0);
+
+            return {
+                success: true,
+                data,
+                total: parseFloat(total.toFixed(2))
+            };
         } catch (error) {
             throw error;
         }
@@ -67,12 +71,11 @@ class Contribution {
     static async findByMemberId(memberId) {
         try {
             const [contributions] = await pool.execute(`
-                SELECT c.*, mt.meeting_date, p.name as payment_method
+                SELECT c.*, mt.meeting_date
                 FROM contributions c
                 LEFT JOIN meetings mt ON c.meeting_id = mt.id
-                LEFT JOIN payment_types p ON c.payment_method_id = p.id
                 WHERE c.member_id = ?
-                ORDER BY mt.meeting_date DESC
+                ORDER BY mt.meeting_date DESC, c.created_at DESC
             `, [memberId]);
             return contributions;
         } catch (error) {
@@ -80,63 +83,71 @@ class Contribution {
         }
     }
 
-static async create(contributionData) {
-    try {
-        const { 
-            member_id, 
-            meeting_id, 
-            amount, 
-            contribution_type,
-            payment_method, 
-            paid_at
-        } = contributionData;
-        
-        const [result] = await pool.execute(`
-            INSERT INTO contributions (
+    static async create(contributionData) {
+        try {
+            const { 
+                member_id, 
+                meeting_id, 
+                amount, 
+                contribution_type = null,
+                payment_method = 'cash', 
+                paid_at = null
+            } = contributionData;
+            
+            const [result] = await pool.execute(`
+                INSERT INTO contributions (
+                    member_id, 
+                    meeting_id, 
+                    amount, 
+                    contribution_type,
+                    payment_method, 
+                    paid_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+            `, [
                 member_id, 
                 meeting_id, 
                 amount, 
                 contribution_type,
                 payment_method, 
-                paid_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?)
-        `, [
-            member_id, 
-            meeting_id, 
-            amount, 
-            contribution_type,
-            payment_method, 
-            paid_at
-        ]);
-        
-        return result.insertId;
-    } catch (error) {
-        throw error;
+                paid_at || new Date()
+            ]);
+            
+            return result.insertId;
+        } catch (error) {
+            throw error;
+        }
     }
-}
 
     static async update(id, contributionData) {
         try {
-            const { member_id, meeting_id, amount, payment_method_id, paybill_id, payment_reference, payment_date, status } = contributionData;
+            const { 
+                member_id, 
+                meeting_id, 
+                amount, 
+                contribution_type, 
+                payment_method, 
+                paid_at 
+            } = contributionData;
+            
             const [result] = await pool.execute(`
                 UPDATE contributions 
-                SET member_id = ?, meeting_id = ?, amount = ?, payment_method_id = ?, paybill_id = ?, payment_reference = ?, payment_date = ?, status = ?
+                SET member_id = ?, meeting_id = ?, amount = ?, contribution_type = ?, payment_method = ?, paid_at = ?
                 WHERE id = ?
-            `, [member_id, meeting_id, amount, payment_method_id, paybill_id, payment_reference, payment_date, status, id]);
+            `, [member_id, meeting_id, amount, contribution_type, payment_method, paid_at, id]);
             return result.affectedRows > 0;
         } catch (error) {
             throw error;
         }
     }
 
-    static async updateStatus(id, status, paymentDate = null, paymentReference = null) {
+    static async updatePaymentInfo(id, payment_method, paid_at = null) {
         try {
             const [result] = await pool.execute(`
                 UPDATE contributions 
-                SET status = ?, payment_date = ?, payment_reference = ?
+                SET payment_method = ?, paid_at = ?
                 WHERE id = ?
-            `, [status, paymentDate, paymentReference, id]);
+            `, [payment_method, paid_at || new Date(), id]);
             return result.affectedRows > 0;
         } catch (error) {
             throw error;
@@ -152,17 +163,68 @@ static async create(contributionData) {
         }
     }
 
-    static async bulkCreate(meetingId, memberIds) {
+    static async bulkCreate(meetingId, contributionsData) {
         try {
-            const values = memberIds.map(memberId => [memberId, meetingId]);
-            const placeholders = values.map(() => '(?, ?)').join(', ');
+            const values = contributionsData.map(data => [
+                data.member_id || data.memberId,
+                meetingId,
+                data.amount || 0,
+                data.contribution_type || null,
+                data.payment_method || 'cash'
+            ]);
+            
+            const placeholders = values.map(() => '(?, ?, ?, ?, ?)').join(', ');
             const flatValues = values.flat();
             
             const [result] = await pool.execute(`
-                INSERT INTO contributions (member_id, meeting_id)
+                INSERT INTO contributions (member_id, meeting_id, amount, contribution_type, payment_method)
                 VALUES ${placeholders}
             `, flatValues);
             return result.affectedRows;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    // Helper method to get contributions by type
+    static async findByType(contribution_type, meetingId = null) {
+        try {
+            let query = `
+                SELECT c.*, m.name as member_name, mt.meeting_date
+                FROM contributions c
+                LEFT JOIN members m ON c.member_id = m.id
+                LEFT JOIN meetings mt ON c.meeting_id = mt.id
+                WHERE c.contribution_type = ?
+            `;
+            const params = [contribution_type];
+            
+            if (meetingId) {
+                query += ` AND c.meeting_id = ?`;
+                params.push(meetingId);
+            }
+            
+            query += ` ORDER BY mt.meeting_date DESC, c.created_at DESC`;
+            
+            const [contributions] = await pool.execute(query, params);
+            return contributions;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    // Helper method to get total contributions by type
+    static async getTotalByType(contribution_type, meetingId = null) {
+        try {
+            let query = `SELECT SUM(amount) as total FROM contributions WHERE contribution_type = ?`;
+            const params = [contribution_type];
+            
+            if (meetingId) {
+                query += ` AND meeting_id = ?`;
+                params.push(meetingId);
+            }
+            
+            const [result] = await pool.execute(query, params);
+            return result[0]?.total || 0;
         } catch (error) {
             throw error;
         }

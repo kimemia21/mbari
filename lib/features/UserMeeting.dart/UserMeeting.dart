@@ -18,20 +18,11 @@ class MeetingDetailsPage extends StatefulWidget {
 
 class _MeetingDetailsPageState extends State<MeetingDetailsPage> {
   Future<Meeting?>? _meetingFuture;
-  late Meeting meeting;
-
-  // User-specific data
-  String _userAttendanceStatus = 'present';
-  bool _hasPaidMeetingFee = false;
-  bool _hasContributedMonthly = false;
-  bool _hasFine = true;
-  double _fineAmount = 500.00;
-  double _userPaidMeetingFeeAmount = 0.00;
-  double _userMonthlyContributionAmount = 0.00;
-  int _presentMembersCount = 15;
-  final double _totalMeetingFee = 200.00;
-  final double _totalMonthlyContribution = 1000.00;
   late Future<MeetingDetails> _meetingDetailsFuture;
+
+  // Meeting fee and contribution standards (could be from settings/config)
+  final double _standardMeetingFee = user.meetingFee;
+  final double _standardMonthlyContribution = user.monthlyContribution;
 
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _phoneNumberController = TextEditingController();
@@ -40,7 +31,6 @@ class _MeetingDetailsPageState extends State<MeetingDetailsPage> {
   void initState() {
     super.initState();
     _fetchMeetingData();
-    getMeetingDetails();
   }
 
   @override
@@ -53,14 +43,6 @@ class _MeetingDetailsPageState extends State<MeetingDetailsPage> {
   void _fetchMeetingData() {
     setState(() {
       _meetingFuture = _getTodayMeeting();
-      _userAttendanceStatus = 'present';
-      _hasPaidMeetingFee = false;
-      _hasContributedMonthly = false;
-      _hasFine = true;
-      _fineAmount = 500.00;
-      _userPaidMeetingFeeAmount = 0.00;
-      _userMonthlyContributionAmount = 0.00;
-      _presentMembersCount = 15;
     });
   }
 
@@ -70,6 +52,8 @@ class _MeetingDetailsPageState extends State<MeetingDetailsPage> {
 
       if (results["rsp"]["success"]) {
         meeting = Meeting.fromJson(results["rsp"]["data"]);
+        // Initialize meeting details future after getting meeting
+        _meetingDetailsFuture = _getMeetingDetails();
         showalert(
           success: true,
           context: context,
@@ -100,32 +84,37 @@ class _MeetingDetailsPageState extends State<MeetingDetailsPage> {
     }
   }
 
-  void getMeetingDetails() {
-    _meetingDetailsFuture = comms
-        .getRequests(endpoint: "meeting/details/${meeting.id}")
-        .then((result) {
-          if (result["rsp"]["success"]) {
-            return MeetingDetails.fromJson(result["rsp"]["data"]);
-          } else {
-            throw Exception(result["rsp"]["message"]);
-          }
-        })
-        .catchError((error) {
-          showalert(
-            success: false,
-            context: context,
-            title: "Error",
-            subtitle: "Failed to load meeting details: $error",
-          );
-        });
+  Future<MeetingDetails> _getMeetingDetails() async {
+    try {
+      final result = await comms.getRequests(
+        endpoint: "meeting/member/${meeting.id}",
+      );
+      if (result["rsp"]["success"]) {
+        return MeetingDetails.fromJson(result["rsp"]["data"]);
+      } else {
+        throw Exception(result["rsp"]["message"]);
+      }
+    } catch (error) {
+      showalert(
+        success: false,
+        context: context,
+        title: "Error",
+        subtitle: "Failed to load meeting details: $error",
+      );
+      rethrow;
+    }
   }
 
   void _showMpesaPaymentDialog(
     BuildContext context, {
     required String paymentType,
+    required double suggestedAmount,
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+
+    // Pre-fill the amount controller with suggested amount
+    _amountController.text = suggestedAmount.toInt().toString();
 
     showDialog(
       context: context,
@@ -233,17 +222,9 @@ class _MeetingDetailsPageState extends State<MeetingDetailsPage> {
                   _amountController.clear();
                   _phoneNumberController.clear();
 
+                  // Refresh meeting details after payment
                   setState(() {
-                    if (paymentType == 'Meeting Fee') {
-                      _hasPaidMeetingFee = true;
-                      _userPaidMeetingFeeAmount = amount;
-                    } else if (paymentType == 'Monthly Contribution') {
-                      _hasContributedMonthly = true;
-                      _userMonthlyContributionAmount = amount;
-                    } else if (paymentType == 'Fine') {
-                      _hasFine = false;
-                      _fineAmount = 0.00;
-                    }
+                    _meetingDetailsFuture = _getMeetingDetails();
                   });
                 } else {
                   showalert(
@@ -301,31 +282,97 @@ class _MeetingDetailsPageState extends State<MeetingDetailsPage> {
         centerTitle: true,
         systemOverlayStyle: SystemUiOverlayStyle.light,
       ),
-      body: FutureBuilder<Meeting?>(
-        future: _meetingFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
-              ),
-            );
-          } else if (snapshot.hasError) {
-            return _buildErrorState(context);
-          } else if (snapshot.hasData && snapshot.data != null) {
-            final meeting = snapshot.data!;
-            return _buildMeetingDetails(context, meeting, theme, colorScheme);
-          } else {
-            return _buildNoMeetingState(context);
-          }
+      body: RefreshIndicator(
+        onRefresh: () async {
+          _getMeetingDetails();
         },
+
+        child: FutureBuilder<Meeting?>(
+          future: _meetingFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    colorScheme.primary,
+                  ),
+                ),
+              );
+            } else if (snapshot.hasError) {
+              return _buildErrorState(context);
+            } else if (snapshot.hasData && snapshot.data != null) {
+              final meeting = snapshot.data!;
+              return _buildMeetingDetailsWithFuture(
+                context,
+                meeting,
+                theme,
+                colorScheme,
+              );
+            } else {
+              return _buildNoMeetingState(context);
+            }
+          },
+        ),
       ),
+    );
+  }
+
+  Widget _buildMeetingDetailsWithFuture(
+    BuildContext context,
+    Meeting meeting,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
+    return FutureBuilder<MeetingDetails>(
+      future: _meetingDetailsFuture,
+      builder: (context, detailsSnapshot) {
+        if (detailsSnapshot.connectionState == ConnectionState.waiting) {
+          return SingleChildScrollView(
+            child: Column(
+              children: [
+                _buildMeetingHeader(context, meeting, theme, colorScheme),
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(40),
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        } else if (detailsSnapshot.hasError) {
+          return SingleChildScrollView(
+            child: Column(
+              children: [
+                _buildMeetingHeader(context, meeting, theme, colorScheme),
+                _buildErrorState(context),
+              ],
+            ),
+          );
+        } else if (detailsSnapshot.hasData) {
+          final meetingDetails = detailsSnapshot.data!;
+          return _buildMeetingDetails(
+            context,
+            meeting,
+            meetingDetails,
+            theme,
+            colorScheme,
+          );
+        } else {
+          return _buildErrorState(context);
+        }
+      },
     );
   }
 
   Widget _buildMeetingDetails(
     BuildContext context,
     Meeting meeting,
+    MeetingDetails meetingDetails,
     ThemeData theme,
     ColorScheme colorScheme,
   ) {
@@ -336,13 +383,21 @@ class _MeetingDetailsPageState extends State<MeetingDetailsPage> {
           _buildMeetingHeader(context, meeting, theme, colorScheme),
 
           // Payment Status Cards (Most Important - Top Priority)
-          _buildPaymentStatusSection(context, theme, colorScheme),
+          _buildPaymentStatusSection(
+            context,
+            meetingDetails,
+            theme,
+            colorScheme,
+          ),
 
-          // Quick Actions (Join/Edit Meeting)
-          if (meeting.status == 'scheduled' || meeting.status == 'ongoing')
-            // _buildQuickActions(context, meeting, theme, colorScheme),
-            // Meeting Essential Info
-            _buildEssentialMeetingInfo(context, meeting, theme, colorScheme),
+          // Meeting Essential Info
+          _buildEssentialMeetingInfo(
+            context,
+            meeting,
+            meetingDetails,
+            theme,
+            colorScheme,
+          ),
 
           // Additional Details (Collapsible or Secondary)
           _buildAdditionalDetails(context, meeting, theme, colorScheme),
@@ -411,7 +466,7 @@ class _MeetingDetailsPageState extends State<MeetingDetailsPage> {
               ),
               const SizedBox(width: 8),
               Text(
-                '${_formatTimeOfDay(meeting.startTime)} - ${_formatTimeOfDay(meeting.endTime)}',
+                '${_formatTimeOfDay(meeting.startTime!)} - ${_formatTimeOfDay(meeting.endTime!)}',
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: colorScheme.onPrimary.withOpacity(0.9),
                 ),
@@ -441,17 +496,25 @@ class _MeetingDetailsPageState extends State<MeetingDetailsPage> {
 
   Widget _buildPaymentStatusSection(
     BuildContext context,
+    MeetingDetails meetingDetails,
     ThemeData theme,
     ColorScheme colorScheme,
   ) {
     List<Widget> pendingPayments = [];
 
-    if (!_hasPaidMeetingFee) {
+    // Check if meeting fee is fully paid
+    bool hasPaidMeetingFee =
+        meetingDetails.meetingFees.total >= _standardMeetingFee;
+    if (!hasPaidMeetingFee) {
+      double remaining =
+          _standardMeetingFee - meetingDetails.meetingFees.total.toDouble();
       pendingPayments.add(
         _buildPaymentCard(
           context,
           title: 'Meeting Fee',
-          amount: _totalMeetingFee,
+          amount: remaining,
+          paidAmount: meetingDetails.meetingFees.total.toDouble(),
+          totalAmount: _standardMeetingFee,
           icon: Icons.event_note,
           color: AppColors.info,
           onTap:
@@ -469,41 +532,58 @@ class _MeetingDetailsPageState extends State<MeetingDetailsPage> {
       );
     }
 
-    if (!_hasContributedMonthly) {
+    // Check if monthly contribution is fully paid
+    bool hasContributedMonthly =
+        meetingDetails.contributions.total >= _standardMonthlyContribution;
+    if (!hasContributedMonthly) {
+      double remaining =
+          _standardMonthlyContribution -
+          meetingDetails.contributions.total.toDouble();
       pendingPayments.add(
         _buildPaymentCard(
           context,
           title: 'Monthly Contribution',
-          amount: _totalMonthlyContribution,
+          amount: remaining,
+          paidAmount: meetingDetails.contributions.total.toDouble(),
+          totalAmount: _standardMonthlyContribution,
           icon: Icons.savings,
           color: colorScheme.primary,
           onTap:
               () => _showMpesaPaymentDialog(
                 context,
                 paymentType: 'Monthly Contribution',
+                suggestedAmount: remaining,
               ),
           theme: theme,
         ),
       );
     }
 
-    if (_hasFine) {
+    // Check if there are outstanding fines
+    bool hasFines = meetingDetails.summary.outstandingFines > 0;
+    if (hasFines) {
       pendingPayments.add(
         _buildPaymentCard(
           context,
           title: 'Outstanding Fine',
-          amount: _fineAmount,
+          amount: meetingDetails.summary.outstandingFines.toDouble(),
           icon: Icons.warning_amber,
           color: AppColors.error,
-          onTap: () => _showMpesaPaymentDialog(context, paymentType: 'Fine'),
+          onTap:
+              () => _showMpesaPaymentDialog(
+                context,
+                paymentType: 'Fine',
+                suggestedAmount:
+                    meetingDetails.summary.outstandingFines.toDouble(),
+              ),
           theme: theme,
-          subtitle: 'Late arrival fee',
+          subtitle: 'Total outstanding fines',
         ),
       );
     }
 
     if (pendingPayments.isEmpty) {
-      return _buildAllPaidCard(context, theme, colorScheme);
+      return _buildAllPaidCard(context, meetingDetails, theme, colorScheme);
     }
 
     return Container(
@@ -529,6 +609,8 @@ class _MeetingDetailsPageState extends State<MeetingDetailsPage> {
     BuildContext context, {
     required String title,
     required double amount,
+    double? paidAmount,
+    double? totalAmount,
     required IconData icon,
     required Color color,
     required VoidCallback onTap,
@@ -549,67 +631,90 @@ class _MeetingDetailsPageState extends State<MeetingDetailsPage> {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: color.withOpacity(0.3)),
             ),
-            child: Row(
+            child: Column(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(icon, color: color, size: 24),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      if (subtitle != null)
-                        Text(
-                          subtitle,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                Row(
                   children: [
-                    Text(
-                      'KSH ${amount.toStringAsFixed(2)}',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        color: color,
-                        fontWeight: FontWeight.bold,
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(icon, color: color, size: 24),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (subtitle != null)
+                            Text(
+                              subtitle,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          if (paidAmount != null && totalAmount != null)
+                            Text(
+                              'Paid: KSH ${paidAmount.toStringAsFixed(2)} of ${totalAmount.toStringAsFixed(2)}',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        'PAY NOW',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          'KSH ${amount.toStringAsFixed(2)}',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            color: color,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: color,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            'PAY NOW',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
+                // Progress bar for partial payments
+                if (paidAmount != null && totalAmount != null && paidAmount > 0)
+                  Column(
+                    children: [
+                      const SizedBox(height: 12),
+                      LinearProgressIndicator(
+                        value: paidAmount / totalAmount,
+                        backgroundColor: color.withOpacity(0.2),
+                        valueColor: AlwaysStoppedAnimation<Color>(color),
+                      ),
+                    ],
+                  ),
               ],
             ),
           ),
@@ -620,6 +725,7 @@ class _MeetingDetailsPageState extends State<MeetingDetailsPage> {
 
   Widget _buildAllPaidCard(
     BuildContext context,
+    MeetingDetails meetingDetails,
     ThemeData theme,
     ColorScheme colorScheme,
   ) {
@@ -658,7 +764,7 @@ class _MeetingDetailsPageState extends State<MeetingDetailsPage> {
                       ),
                     ),
                     Text(
-                      'You\'re all set for today\'s meeting',
+                      'Total contributed: KSH ${meetingDetails.summary.totalFinancialActivity}',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -673,49 +779,10 @@ class _MeetingDetailsPageState extends State<MeetingDetailsPage> {
     );
   }
 
-  // Widget _buildQuickActions(BuildContext context, Meeting meeting, ThemeData theme, ColorScheme colorScheme) {
-  //   return Container(
-  //     padding: const EdgeInsets.symmetric(horizontal: 20),
-  //     child: Row(
-  //       children: [
-  //         Expanded(
-  //           flex: 2,
-  //           child: ElevatedButton.icon(
-  //             onPressed: () {
-  //               showalert(success: true, context: context, title: "Joining Meeting", subtitle: "Attempting to join the meeting...");
-  //             },
-  //             icon: Icon(Icons.videocam, color: colorScheme.onPrimary),
-  //             label: Text('Join Meeting', style: TextStyle(color: colorScheme.onPrimary)),
-  //             style: ElevatedButton.styleFrom(
-  //               backgroundColor: colorScheme.primary,
-  //               padding: const EdgeInsets.symmetric(vertical: 16),
-  //               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-  //             ),
-  //           ),
-  //         ),
-  //         const SizedBox(width: 12),
-  //         Expanded(
-  //           child: OutlinedButton.icon(
-  //             onPressed: () {
-  //               showalert(success: false, context: context, title: "Edit Meeting", subtitle: "Navigating to edit meeting page.");
-  //             },
-  //             icon: Icon(Icons.edit, color: colorScheme.primary),
-  //             label: Text('Edit', style: TextStyle(color: colorScheme.primary)),
-  //             style: OutlinedButton.styleFrom(
-  //               side: BorderSide(color: colorScheme.primary),
-  //               padding: const EdgeInsets.symmetric(vertical: 16),
-  //               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-  //             ),
-  //           ),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
-
   Widget _buildEssentialMeetingInfo(
     BuildContext context,
     Meeting meeting,
+    MeetingDetails meetingDetails,
     ThemeData theme,
     ColorScheme colorScheme,
   ) {
@@ -746,17 +813,9 @@ class _MeetingDetailsPageState extends State<MeetingDetailsPage> {
               const SizedBox(height: 16),
               _buildInfoRow(
                 context,
-                Icons.group,
-                'Attendance',
-                '$_presentMembersCount members present',
-                theme,
-              ),
-              const SizedBox(height: 16),
-              _buildInfoRow(
-                context,
                 Icons.person,
                 'Organizer',
-                meeting.createdByName!,
+                meeting.createdByName ?? 'N/A',
                 theme,
               ),
               const SizedBox(height: 16),
@@ -764,13 +823,87 @@ class _MeetingDetailsPageState extends State<MeetingDetailsPage> {
                 context,
                 Icons.account_circle,
                 'Your Status',
-                _userAttendanceStatus.toUpperCase(),
+                meetingDetails.attendance.status.toUpperCase(),
                 theme,
+              ),
+              if (meetingDetails.attendance.checkInTime != null) ...[
+                const SizedBox(height: 16),
+                _buildInfoRow(
+                  context,
+                  Icons.login,
+                  'Check-in Time',
+                  DateFormat(
+                    'h:mm a',
+                  ).format(meetingDetails.attendance.checkInTime!),
+                  theme,
+                ),
+              ],
+              const SizedBox(height: 20),
+              Text(
+                'Financial Summary',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _buildFinancialSummaryRow(
+                'Meeting Fees Paid',
+                'KSH ${meetingDetails.meetingFees.total}',
+                Icons.event_note,
+                theme,
+              ),
+              const SizedBox(height: 8),
+              _buildFinancialSummaryRow(
+                'Contributions Made',
+                'KSH ${meetingDetails.contributions.total}',
+                Icons.savings,
+                theme,
+              ),
+              const SizedBox(height: 8),
+              _buildFinancialSummaryRow(
+                'Outstanding Fines',
+                'KSH ${meetingDetails.summary.outstandingFines}',
+                Icons.warning_amber,
+                theme,
+                color:
+                    meetingDetails.summary.outstandingFines > 0
+                        ? AppColors.error
+                        : AppColors.success,
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildFinancialSummaryRow(
+    String label,
+    String value,
+    IconData icon,
+    ThemeData theme, {
+    Color? color,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, color: color ?? theme.colorScheme.primary, size: 18),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        Text(
+          value,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+      ],
     );
   }
 
@@ -876,37 +1009,39 @@ class _MeetingDetailsPageState extends State<MeetingDetailsPage> {
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.wifi_off_rounded,
-              color: colorScheme.onBackground.withOpacity(0.6),
-              size: 60,
-            ),
+            Icon(Icons.error_outline, size: 64, color: colorScheme.error),
             const SizedBox(height: 16),
             Text(
-              'Connection Error',
-              style: theme.textTheme.headlineSmall,
-              textAlign: TextAlign.center,
+              'Something went wrong',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                color: colorScheme.error,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Failed to load meeting details',
-              style: theme.textTheme.bodyMedium,
+              'Unable to load meeting details. Please try again.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: _fetchMeetingData,
-              icon: Icon(Icons.refresh_rounded),
-              label: Text('Retry'),
+              onPressed: () {
+                _fetchMeetingData();
+              },
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: colorScheme.primary,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 30,
-                  vertical: 15,
+                foregroundColor: colorScheme.onPrimary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
             ),
@@ -922,32 +1057,71 @@ class _MeetingDetailsPageState extends State<MeetingDetailsPage> {
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.event_busy_outlined,
-              color: colorScheme.onBackground.withOpacity(0.6),
-              size: 60,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No Meeting Today',
-              style: theme.textTheme.headlineSmall,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'There are no meetings scheduled for today',
-              style: theme.textTheme.bodyMedium,
-              textAlign: TextAlign.center,
+              Icons.event_busy,
+              size: 80,
+              color: colorScheme.onSurfaceVariant,
             ),
             const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _fetchMeetingData,
-              icon: Icon(Icons.refresh_rounded),
-              label: Text('Refresh'),
+            Text(
+              'No Meeting Today',
+              style: theme.textTheme.headlineMedium?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'There are no scheduled meetings for today. Check back later or contact your group administrator.',
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () {
+                    _fetchMeetingData();
+                  },
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Refresh'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: colorScheme.primary,
+                    foregroundColor: colorScheme.onPrimary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                if (false) // Assuming admin check
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      // Navigator.push(
+                      //   context,
+                      //   MaterialPageRoute(
+                      //     builder: (context) => const CreateMeetingPage(),
+                      //   ),
+                      // );
+                    },
+                    icon: const Icon(Icons.add),
+                    label: const Text('Create Meeting'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: colorScheme.primary,
+                      side: BorderSide(color: colorScheme.primary),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ],
         ),
@@ -955,10 +1129,9 @@ class _MeetingDetailsPageState extends State<MeetingDetailsPage> {
     );
   }
 
-  String _formatTimeOfDay(TimeOfDay? time) {
-    if (time == null) return 'N/A';
+  String _formatTimeOfDay(TimeOfDay time) {
     final now = DateTime.now();
     final dt = DateTime(now.year, now.month, now.day, time.hour, time.minute);
-    return DateFormat('h:mm a').format(dt);
+    return DateFormat.jm().format(dt);
   }
 }

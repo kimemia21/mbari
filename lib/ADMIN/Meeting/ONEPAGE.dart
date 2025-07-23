@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mbari/ADMIN/Meeting/Attendance.dart';
+import 'package:mbari/ADMIN/Meeting/Contributions.dart';
 import 'package:mbari/ADMIN/Meeting/MeetingFees.dart';
 import 'package:mbari/ADMIN/Meeting/Widgets.dart';
 import 'package:mbari/core/constants/constants.dart';
@@ -312,7 +313,7 @@ class _MeetingManagementPageState extends State<MeetingManagementPage> {
                         SizedBox(height: 20),
                         AttendanceTable(),
                         SizedBox(height: 20),
-                        _buildContributionsSection(),
+                        ContributionsTable(),
                         SizedBox(height: 20),
                         Meetingfees(),
                         SizedBox(height: 20),
@@ -627,39 +628,7 @@ class _MeetingManagementPageState extends State<MeetingManagementPage> {
     );
   }
 
-  Widget _buildContributionsSection() {
-    double totalCollected = contributions
-        .where((c) => c.status == "Paid")
-        .fold(0.0, (sum, c) => sum + c.amount);
-    double totalExpected = contributions.fold(0.0, (sum, c) => sum + c.amount);
-
-    return MeetingWidgets.buildTableSection(
-      title: 'Contributions',
-      subtitle:
-          'Total Collected: \$${totalCollected.toStringAsFixed(2)} | Expected: \$${totalExpected.toStringAsFixed(2)}',
-      actionButton: ElevatedButton.icon(
-        onPressed: () => _showAddContributionDialog(),
-        icon: Icon(Icons.add),
-        label: Text('Add Cash'),
-        style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-      ),
-      child: MeetingWidgets.buildDataTable(
-        context: context,
-        columns: ['Name', 'Amount', 'Payment Method', 'Status'],
-        rows:
-            contributions
-                .map(
-                  (record) => [
-                    record.name,
-                    '\$${record.amount.toStringAsFixed(2)}',
-                    record.paymentMethod,
-                    MeetingWidgets.buildStatusChip(record.status),
-                  ],
-                )
-                .toList(),
-      ),
-    );
-  }
+  
 
   Widget _buildFinesSection() {
     double totalCollected = fines
