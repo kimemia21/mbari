@@ -20,6 +20,15 @@ class MeetingController {
         }
     }
 
+
+   
+
+
+
+
+
+
+
 static async getMemberMeetingStats(req, res) {
     try {
         const  {meetingId} = req.params; 
@@ -118,7 +127,9 @@ static async getMeetingForToday(req, res) {
     }
 
     static async getMeetingsByChamaId(req, res) {
+          console.log("Fetching meetings");
         try {
+            // console.log("Fetching meetings for chama_id:", req.user.chama_id);
             const chamaId = req.user.chama_id;
             const meetings = await Meeting.findByChamaId(chamaId);
             
@@ -245,6 +256,42 @@ static async getMeetingForToday(req, res) {
             });
         }
     }
+
+
+
+
+     static async getMeetingStatsAdmin(req, res) {
+        try {
+            const chamaId = req.user.chama_id;
+            const meetingId = req.body.meetingId; // Assuming meetingId is passed in the request body
+
+            if (!meetingId) {
+                return res.status(400).json({   
+                    success: false,
+                    message: 'Meeting ID is required'
+                });
+            }
+    
+            const meetings = await Meeting.getMoneyInHand(chamaId, meetingId);
+            
+            res.json({
+                success: true,
+                data: meetings,
+                message: 'Completed meetings retrieved successfully'
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: 'Error retrieving completed meetings',
+                error: error.message
+            });
+        }
+    }
+
+
+
+
+
 }
 
 // Meeting Attendance Controller

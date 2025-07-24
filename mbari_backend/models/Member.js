@@ -6,6 +6,20 @@ class Member {
 
     try {
       const [members] = await pool.execute(
+        `SELECT * FROM members WHERE chama_id =?;`,
+        [chamaId]
+      );
+      console.log('members are',members)
+      return members;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+    static async findActiveMembers(chamaId) {
+
+    try {
+      const [members] = await pool.execute(
         `SELECT * FROM members WHERE chama_id =? AND is_active = TRUE;`,
         [chamaId]
       );
@@ -167,6 +181,66 @@ WHERE m.id = ?;
     }
   }
 
+static async getAllMemberStats(chamaId) {
+  console.log("Fetching stats for all members in chama:", chamaId);
+  try {
+    const [stats] = await pool.execute(
+      `
+      SELECT 
+        m.id as member_id,
+        m.name as member_name,
+        m.phoneNumber as member_phone,
+        m.role as member_role,
+        m.status as member_status,
+        COALESCE(c.total_contributed, 0) AS total_contributed,
+        COALESCE(c.total_contributions, 0) AS total_contributions,
+        COALESCE(d.outstanding_debt, 0) AS outstanding_debt,
+        COALESCE(a.meetings_attended, 0) AS meetings_attended,
+        COALESCE(a.times_late, 0) AS times_late,
+        COALESCE(a.total_completed_meetings, 0) AS total_completed_meetings,
+        CASE 
+          WHEN COALESCE(a.total_completed_meetings, 0) = 0 THEN 0
+          ELSE ROUND((COALESCE(a.meetings_attended, 0) / a.total_completed_meetings) * 100, 2)
+        END AS attendance_percentage
+      FROM members m
+      LEFT JOIN (
+        SELECT member_id, 
+               SUM(amount) AS total_contributed,
+               COUNT(*) AS total_contributions
+        FROM contributions
+        GROUP BY member_id
+      ) c ON m.id = c.member_id
+      LEFT JOIN (
+        SELECT member_id,
+               SUM(amount) AS outstanding_debt
+        FROM member_debts
+        WHERE is_paid = FALSE
+        GROUP BY member_id
+      ) d ON m.id = d.member_id
+      LEFT JOIN (
+        SELECT 
+          ma.member_id,
+          COUNT(CASE WHEN ma.attendance_status IN ('present', 'late') THEN 1 END) AS meetings_attended,
+          COUNT(CASE WHEN ma.attendance_status = 'late' THEN 1 END) AS times_late,
+          COUNT(DISTINCT mt.id) AS total_completed_meetings
+        FROM meeting_attendance ma
+        INNER JOIN meetings mt ON ma.meeting_id = mt.id
+        WHERE mt.status = 'completed' 
+          AND mt.chama_id = ?
+        GROUP BY ma.member_id
+      ) a ON m.id = a.member_id
+      WHERE m.chama_id = ?
+      ORDER BY m.name;
+      `,
+      [chamaId, chamaId]
+    );
+
+    return stats || [];
+  } catch (error) {
+    console.error("Error fetching member stats:", error);
+    throw error;
+  }
+}
   static async validatePassword(hashedPassword, password) {
     return await bcrypt.compare(password, hashedPassword);
   }

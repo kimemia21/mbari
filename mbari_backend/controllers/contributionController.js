@@ -4,8 +4,10 @@ const { Contribution } = require('../models/financialModels');
 
 const contributionController = {
     async getAll(req, res) {
+
         try {
-            const contributions = await Contribution.findAll();
+            const chamaId = req.user.chama_id; 
+            const contributions = await Contribution.findAll(chamaId);
             res.json(contributions);
         } catch (error) {
             res.status(500).json({ error: error.message });

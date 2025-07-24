@@ -5,6 +5,7 @@ const authenticateToken = async (req, res, next) => {
   try {
     // Get token from header
     const token = req.header('Authorization')?.replace('Bearer ', '');
+    
     console.log(`token ${token}`);
     
     if (!token) {
@@ -16,8 +17,7 @@ const authenticateToken = async (req, res, next) => {
     
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-    console.log(decoded);
-    
+ 
     // Check if user exists and token is valid
     const query = 'SELECT * FROM members WHERE id = ?';
     const result = await pool.execute(query, [decoded.id]);
@@ -29,11 +29,10 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
-    console.log(`results ${result}`)
     
     // Add user info to request
     req.user = result[0][0];
-    console.log(req.user)
+
 
     next();
   } catch (error) {

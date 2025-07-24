@@ -2,15 +2,17 @@ const { pool } = require('../config/database');
 
 // Contributions Model
 class Contribution {
-    static async findAll() {
+    static async findAll(chamaId) {
         try {
-            const [contributions] = await pool.execute(`
-                SELECT c.*, m.name as member_name, mt.meeting_date
-                FROM contributions c
-                LEFT JOIN members m ON c.member_id = m.id
-                LEFT JOIN meetings mt ON c.meeting_id = mt.id
-                ORDER BY mt.meeting_date DESC, c.created_at DESC
-            `);
+       const [contributions] = await pool.execute(`
+    SELECT c.*, m.name AS member_name, mt.meeting_date
+    FROM contributions c
+    LEFT JOIN members m ON c.member_id = m.id
+    LEFT JOIN meetings mt ON c.meeting_id = mt.id
+    WHERE c.chama_id = ?
+    ORDER BY mt.meeting_date DESC, c.created_at DESC
+`, [chamaId]);
+
             return contributions;
         } catch (error) {
             throw error;

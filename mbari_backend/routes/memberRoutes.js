@@ -10,6 +10,8 @@ router.post('/login', memberController.login);
 router.get('/profile', authenticateToken, memberController.getProfile);
 router.get('/dashboard', authenticateToken, memberController.getDashboard);
 router.get('/',authenticateToken,memberController.getAllUsers);
+router.get('/admin/dashboard',authenticateToken,memberController.getAdminDashBoard);
+router.get('/admin/members',authenticateToken,memberController.getAdminMembers);
 
 module.exports = router;
 

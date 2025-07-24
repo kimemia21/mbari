@@ -14,8 +14,12 @@ router.get('/today',authenticateToken ,MeetingController.getMeetingForToday);
 router.get('/', authorizeAdmin ,MeetingController.getAllMeetings);
 router.get('/:id', MeetingController.getMeetingById);
 router.get("/member/:meetingId", MeetingController.getMemberMeetingStats);
-router.get('/chama/:chamaId', MeetingController.getMeetingsByChamaId);
-router.post('',authorizeAdmin,MeetingController.createMeeting);
+router.get('/my-chama/meetings', MeetingController.getMeetingsByChamaId);
+router.get('/admin/stats',authorizeAdmin, authenticateToken,MeetingController.getMeetingStatsAdmin);
+
+
+
+router.post('/',authorizeAdmin,MeetingController.createMeeting);
 router.put('/:id',authorizeAdmin , MeetingController.updateMeeting);
 router.delete('/:id',authorizeAdmin ,MeetingController.deleteMeeting);
 router.get('/chama/:chamaId/upcoming', MeetingController.getUpcomingMeetings);

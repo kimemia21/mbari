@@ -1,4 +1,5 @@
-const { MemberDeposit } = require('../models/financialModels');
+const { MemberDeposit, Contribution } = require('../models/financialModels');
+const { Meeting } = require('../models/Meeting');
 const Member = require('../models/Member');
 const jwt = require('jsonwebtoken');
 
@@ -280,6 +281,116 @@ res.json({
             });
         }
     }
+
+
+
+static async getAdminDashBoard(req, res) {
+    try {
+        const chamaId = req.user.chama_id; // From auth middleware
+        
+        // Execute all database queries concurrently for better performance
+        const [users, contributions, meetings] = await Promise.all([
+            Member.findAll(chamaId),
+            Contribution.findAll(chamaId), // Filter by chamaId if needed
+            Meeting.getCompletedMeetings(chamaId)
+        ]);
+        
+        // 1. Total users count
+        const totalUsers = users.length;
+        
+        // 2. Total amount in contributions (assuming contributions have an 'amount' field)
+        const totalContributions = contributions.reduce((sum, contribution) => {
+            return sum + (parseFloat(contribution.amount) || 0);
+        }, 0);
+        
+        // 3. Total meetings held
+        const totalCompleteMeetings = meetings.length;
+        
+        // 4. Additional useful stats
+        const activeUsers = users.filter(user => user.status === 'active').length;
+        const avgContributionPerUser = totalUsers > 0 ? totalContributions / totalUsers : 0;
+        
+        // Prepare dashboard data
+        const dashboardStats = {
+            totalUsers,
+            activeUsers,
+            totalContributions: parseFloat(totalContributions.toFixed(2)),
+            totalCompleteMeetings,
+            avgContributionPerUser: parseFloat(avgContributionPerUser.toFixed(2)),
+            chamaId
+        };
+        
+        // Return successful response
+        return res.status(200).json({
+            success: true,
+            message: 'Dashboard data retrieved successfully',
+            data: dashboardStats
+        });
+        
+    } catch (error) {
+        console.error('Error fetching admin dashboard data:', error);
+        
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to retrieve dashboard data',
+            error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        });
+    }
 }
+
+
+
+static async getAdminMembers(req, res){
+    try {
+        const chamaId = req.user.chama_id; 
+        // From auth middleware
+        
+        // Execute all database queries concurrently for better performance
+        const [allMembers, activeMembers, allContributions, memberStatistics] = await Promise.all([
+            Member.findAll(chamaId), // Get all members
+            Member.findActiveMembers(chamaId),
+            Contribution.findAll(chamaId), // Filter by chamaId if needed
+            Member.getAllMemberStats(chamaId),
+        ]);
+        
+        // Calculate total members count
+        const totalMembersCount = allMembers.length;
+        const activeMembersCount = activeMembers.length;
+        
+        // Calculate total contribution amount
+        const totalContributionAmount = allContributions.reduce((sum, contribution) => {
+            return sum + (parseFloat(contribution.amount) || 0);
+        }, 0);
+        
+        // Prepare dashboard statistics
+        const dashboardStatistics = {
+            totalMembers: totalMembersCount,
+            activeMembers: activeMembersCount,
+            totalContributions: parseFloat(totalContributionAmount.toFixed(2)),
+            memberStats: memberStatistics,
+            chamaId
+        };
+        
+        // Return successful response
+        return res.status(200).json({
+            success: true,
+            message: 'Dashboard data retrieved successfully',
+            data: dashboardStatistics
+        });
+        
+    } catch (error) {
+        console.error('Error fetching admin dashboard data:', error);
+        
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to retrieve dashboard data',
+            error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        });
+    }
+}
+
+}
+
+
 
 module.exports = membercontroller;

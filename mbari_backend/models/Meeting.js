@@ -52,6 +52,7 @@ ORDER BY
     }
 
     static async findByChamaId(chamaId) {
+        console.log("------------chama id is", chamaId);
         try {
             const [meetings] = await pool.execute(`
              SELECT 
@@ -196,7 +197,31 @@ static async meetingForToday(chamaId) {
             throw error;
         }
     }
+
+
+   static async getMoneyInHand(meetingId, chamaId) {
+    try {
+        const [rows] = await pool.execute(`
+            SELECT 
+                COALESCE(SUM(amount), 0) AS total_cash_in_hand
+            FROM 
+                cash_in_hand
+            WHERE 
+                meeting_id = ? AND chama_id = ?
+        `, [meetingId, chamaId]);
+
+        const total = rows[0]?.total_cash_in_hand ?? 0;
+        return total;
+        
+    } catch (error) {
+        throw error;
+    }
+}
+
+
+    
 static async getMemberMeetingStatsSingleQuery(meetingId, memberId) {
+    
     console.log("Fetching member meeting stats for meetingId:", meetingId, "and memberId:", memberId);
     try {
         const query = `

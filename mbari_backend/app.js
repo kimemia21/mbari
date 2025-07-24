@@ -31,7 +31,6 @@ app.use(express.json());
 
 // Routes
 app.use('/api/chamas', chamaRoutes);
-
 app.use('/api/members', memberRoutes);
 app.use('/api/contributions', contributionRoutes);
 app.use('/api/meeting-fees', meetingFeeRoutes);
@@ -40,8 +39,14 @@ app.use('/api/member-debts', memberDebtRoutes);
 app.use('/api/member-deposits', memberDepositRoutes);
 app.use('/api/payment-types', paymentTypeRoutes);
 app.use('/api/paybills', paybillRoutes);
-app.use("/api/meeting", meetings)
+ app.use("/api/meeting", meetings)
 app.use('/api/mpesa', mpesaRoutes);
+
+app._router.stack.forEach(r => {
+  if (r.route && r.route.path) {
+    console.log(`${r.route.stack[0].method.toUpperCase()} ${r.route.path}`);
+  }
+});
 
 
 

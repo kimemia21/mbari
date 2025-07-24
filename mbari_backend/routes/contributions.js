@@ -3,9 +3,10 @@
 const express = require('express');
 const router = express.Router();
 const contributionController = require('../controllers/contributionController');
+const { authenticateToken } = require('../middleware/auth');
 
 
-router.get('/', contributionController.getAll);
+router.get('/', authenticateToken,contributionController.getAll);
 router.get('/:id', contributionController.getById);
 router.get('/meeting/:meetingId', contributionController.getByMeeting);
 router.get('/member/:memberId', contributionController.getByMember);
