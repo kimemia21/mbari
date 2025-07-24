@@ -6,8 +6,8 @@ import 'package:mbari/core/utils/Alerts.dart';
 import 'package:mbari/data/models/Meeting.dart';
 import 'package:mbari/data/models/UserStats.dart';
 import 'package:mbari/features/UserMeeting.dart/MeetingsPage.dart';
+import 'package:mbari/features/UserMeeting.dart/Members.dart';
 import 'package:mbari/features/UserMeeting.dart/UserMeeting.dart';
-import 'package:mbari/features/deposit/deposit.dart';
 import 'package:mbari/features/profile/Profile.dart';
 
 class ChamaHomePage extends StatefulWidget {
@@ -37,7 +37,9 @@ class _ChamaHomePageState extends State<ChamaHomePage> {
         },
       ),
       MeetingDetailsPage(),
-      const AddDepositPage(), // Deposit page at index 2
+     UserMeetingPage(),
+      
+       // Deposit page at index 2
       const LoansPage(),
       const ProfilePage(),
     ];
@@ -792,7 +794,7 @@ class _HomePageState extends State<HomePage> {
                     title: 'Meetings',
                     icon: Icons.meeting_room_outlined, // Specific, clean icon
                     onTap: () {
-                      print('Navigate to Meetings');
+                    widget.onPressed(2);
                     },
                   ),
                   _buildActionButton(

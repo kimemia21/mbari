@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:mbari/ADMIN/Create/CreateMeeting.dart';
-import 'package:mbari/ADMIN/Meeting/MeetingPage.dart';
 import 'package:mbari/ADMIN/Meeting/ONEPAGE.dart';
 import 'package:mbari/ADMIN/Members/MembersPage.dart';
 import 'package:mbari/core/constants/constants.dart';
+import 'package:mbari/core/utils/Alerts.dart';
+import 'package:mbari/data/models/AdminDash.dart';
 import 'package:sidebarx/sidebarx.dart';
 
 class AdminDashboard extends StatefulWidget {
@@ -18,12 +19,41 @@ class _AdminDashboardState extends State<AdminDashboard> {
   // Its 'extended' state will be dynamically managed based on screen width.
   final _controller = SidebarXController(selectedIndex: 0, extended: true);
   bool isBalanceBlurred = false;
+  bool isLoading = false;
 
-  // Sample data for the dashboard cards
-  final int totalMembers = 25;
-  final double accountBalance = 125000.50;
-  final int debtOwners = 5;
-  final int totalMeetings = 12;
+  late Future<ChamaStats> chamaStatsFuture;
+
+  Future<ChamaStats> fetchChamaStats() async {
+    setState(() => isLoading = true);
+    final response = await comms.getRequests(
+      endpoint: "members/admin/dashboard",
+    );
+
+    if (response["rsp"]["success"]) {
+      setState(() => isLoading = false);
+      return ChamaStats.fromJson(response["rsp"]["data"]);
+    } else {
+      showalert(
+        success: false,
+        context: context,
+        title: "Admin",
+        subtitle: response["rsp"]["message"],
+      );
+      setState(() => isLoading = false);
+
+      // Handle error case, e.g., throw an exception or return default stats
+      throw Exception(
+        "Failed to load chama stats: ${response["rsp"]["message"]}",
+      );
+    }
+  }
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    chamaStatsFuture = fetchChamaStats();
+  }
 
   // Global key for the ScaffoldState, essential for controlling the Drawer (e.g., opening it).
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -543,60 +573,86 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
           const SizedBox(height: 24),
 
-          // Stats cards section
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final width = constraints.maxWidth;
-              final isMobile = width < 600;
-              // Determine the number of columns based on available width
-              final crossAxisCount =
-                  width > 1200
-                      ? 4
-                      : width > 800
-                      ? 3
-                      : width > 600
-                      ? 2
-                      : 1;
+          FutureBuilder<ChamaStats>(
+            future: chamaStatsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Center(child: CircularProgressIndicator());
+              } else if (snapshot.hasError) {
+                return Center(
+                  child: Text(
+                    'Error loading stats: ${snapshot.error}',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                );
+              } else if (!snapshot.hasData) {
+                return Center(child: Text('No data available'));
+              }
 
-              return GridView.count(
-                shrinkWrap: true, // Take only as much space as needed
-                physics:
-                    const NeverScrollableScrollPhysics(), // Disable GridView's own scrolling
-                crossAxisCount: crossAxisCount,
-                mainAxisSpacing: isMobile ? 12 : 16,
-                crossAxisSpacing: isMobile ? 12 : 16,
-                childAspectRatio:
-                    isMobile ? 2.2 : 1.5, // Adjust aspect ratio for mobile
-                children: [
-                  _buildStatCard(
-                    'Total Members',
-                    totalMembers.toString(),
-                    Icons.people,
-                    Theme.of(context).colorScheme.primary,
-                    'Active members in chama',
-                    '+3 this month',
-                  ),
-                  _buildAccountBalanceCard(), // Dedicated card for account balance
-                  _buildStatCard(
-                    'Debt Owners',
-                    debtOwners.toString(),
-                    Icons.warning,
-                    Theme.of(context).colorScheme.error,
-                    'Members with outstanding debts',
-                    '-2 from last month',
-                  ),
-                  _buildStatCard(
-                    'Total Meetings',
-                    totalMeetings.toString(),
-                    Icons.event,
-                    Theme.of(context).colorScheme.tertiary,
-                    'Meetings held this year',
-                    'Next: Dec 20, 2024',
-                  ),
-                ],
+              final stats = snapshot.data!;
+              final totalMembers = stats.totalUsers;
+              final debtOwners =
+                  stats.activeUsers; // Assuming active users are debt owners
+              final totalMeetings = stats.totalCompleteMeetings;
+              final accountBalance = stats.totalContributions;
+
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  final width = constraints.maxWidth;
+                  final isMobile = width < 600;
+                  // Determine the number of columns based on available width
+                  final crossAxisCount =
+                      width > 1200
+                          ? 4
+                          : width > 800
+                          ? 3
+                          : width > 600
+                          ? 2
+                          : 1;
+
+                  return GridView.count(
+                    shrinkWrap: true, // Take only as much space as needed
+                    physics:
+                        const NeverScrollableScrollPhysics(), // Disable GridView's own scrolling
+                    crossAxisCount: crossAxisCount,
+                    mainAxisSpacing: isMobile ? 12 : 16,
+                    crossAxisSpacing: isMobile ? 12 : 16,
+                    childAspectRatio:
+                        isMobile ? 2.2 : 1.5, // Adjust aspect ratio for mobile
+                    children: [
+                      _buildStatCard(
+                        'Total Members',
+                        totalMembers.toString(),
+                        Icons.people,
+                        Theme.of(context).colorScheme.primary,
+                        'Active members in chama',
+                        '+3 this month',
+                      ),
+                      _buildAccountBalanceCard(accountBalance), // Dedicated card for account balance
+                      _buildStatCard(
+                        'Debt Owners',
+                        debtOwners.toString(),
+                        Icons.warning,
+                        Theme.of(context).colorScheme.error,
+                        'Members with outstanding debts',
+                        '-2 from last month',
+                      ),
+                      _buildStatCard(
+                        'Total Meetings',
+                        totalMeetings.toString(),
+                        Icons.event,
+                        Theme.of(context).colorScheme.tertiary,
+                        'Meetings held this year',
+                        'Next: Dec 20, 2024',
+                      ),
+                    ],
+                  );
+                },
               );
             },
           ),
+
+          // Stats cards section
           const SizedBox(height: 32),
 
           // Quick actions section
@@ -637,14 +693,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     Icons.add_circle,
                     Theme.of(context).colorScheme.primary,
                     () {
-  showModalBottomSheet(
-   showDragHandle: true,
-  enableDrag: true,
-  context: context,
-  isScrollControlled: true,  builder: (context) {
-    return CreateMeetingForm();
-   },
- );
+                      showModalBottomSheet(
+                        showDragHandle: true,
+                        enableDrag: true,
+                        context: context,
+                        isScrollControlled: true,
+                        builder: (context) {
+                          return CreateMeetingForm();
+                        },
+                      );
                     },
                   ), // Empty onTap for now
                   _buildActionCard(
@@ -679,14 +736,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   // Placeholder content for Meetings page
   Widget _buildMeetingsContent() {
-    return  Expanded(
-      
+    return Expanded(
       child:
-      // MeetingPage()
-      
-   MeetingManagementPage()
+          // MeetingPage()
+          MeetingManagementPage(),
     );
-    
   }
 
   // Placeholder content for Analytics page
@@ -864,7 +918,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   // Builds the account balance card with blur toggle functionality
-  Widget _buildAccountBalanceCard() {
+  Widget _buildAccountBalanceCard(dynamic  balance) {
     final isMobile = MediaQuery.of(context).size.width < 600;
 
     return Container(
@@ -961,7 +1015,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               Text(
                 isBalanceBlurred
                     ? 'KES ●●●●●●' // Blurred representation
-                    : 'KES ${accountBalance.toStringAsFixed(2)}', // Actual balance
+                    : 'KES ${balance.toStringAsFixed(2)}', // Actual balance
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: Theme.of(context).colorScheme.onSurface,
