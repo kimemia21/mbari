@@ -271,12 +271,21 @@ static async getMeetingForToday(req, res) {
                     message: 'Meeting ID is required'
                 });
             }
-    
+    //  cash in hand for the meeting
             const meetings = await Meeting.getMoneyInHand(chamaId, meetingId);
+// attendance stats for the meeting 
+            const attendance = await MeetingAttendance.getAttendanceStatsByMeeting(meetingId,chamaId);
+            // contribution stats for the meeting 
+            const contributions = await Contribution.findByMeetingIdAdmin(meetingId,chamaId);
+
+            
+
+
+
             
             res.json({
                 success: true,
-                data: meetings,
+                data: {meetings, attendance,contributions},
                 message: 'Completed meetings retrieved successfully'
             });
         } catch (error) {

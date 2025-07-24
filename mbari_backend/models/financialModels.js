@@ -53,7 +53,7 @@ static async findByMeetingId(meetingId) {
                 LEFT JOIN members m ON c.member_id = m.id
                 WHERE c.meeting_id = ?
                 ORDER BY c.created_at DESC
-            `, [49]);
+            `, [meetingId]);
 
             // Calculate total amount
             const total = data.reduce((sum, contribution) => {
@@ -69,6 +69,75 @@ static async findByMeetingId(meetingId) {
             throw error;
         }
     }
+
+static async findByMeetingIdAdmin(meetingId, chamaId) {
+    console.log("Finding contributions for meetingId Admin:", meetingId);
+
+    // we have an issue when the value total is more than expected amount 
+
+    const query = `
+        SELECT 
+            c.id AS chama_id,
+            c.monthly_contribution,
+            (SELECT COUNT(*) 
+             FROM members m 
+             WHERE m.chama_id = c.id) AS total_members,
+             
+            (SELECT COUNT(*) 
+             FROM members m 
+             WHERE m.chama_id = c.id) * c.monthly_contribution AS expected_contributions,
+
+            (SELECT SUM(amount) 
+             FROM contributions ctr 
+             WHERE ctr.chama_id = c.id 
+               AND ctr.meeting_id = ? 
+               AND ctr.contribution_type = 'contribution') AS collected_contributions
+
+        FROM chamas c
+        WHERE c.id = ?;
+    `;
+
+    try {
+        const [rows] = await pool.execute(query, [meetingId, chamaId]);
+
+        if (rows.length === 0) {
+            return {
+                success: false,
+                message: "No data found for this chama/meeting.",
+                data: null
+            };
+        }
+
+        const result = rows[0];
+        const expected = parseFloat(result.expected_contributions || 0);
+        const collected = parseFloat(result.collected_contributions || 0);
+        const balance = expected - collected;
+
+        return {
+            success: true,
+            data: {
+                chama_id: result.chama_id,
+                monthly_contribution: parseFloat(result.monthly_contribution),
+                total_members: result.total_members,
+                expected_contributions: expected,
+                collected_contributions: collected,
+                balance: parseFloat(balance.toFixed(2))
+            }
+        };
+
+    } catch (error) {
+        console.error("Error fetching meeting contributions:", error);
+        throw error;
+    }
+}
+
+
+
+
+
+
+
+
 
     static async findByMemberId(memberId) {
         try {

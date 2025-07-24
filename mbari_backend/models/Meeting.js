@@ -346,6 +346,34 @@ class MeetingAttendance {
         }
     }
 
+static async getAttendanceStatsByMeeting(meetingId, chamaId) {
+    try {
+        const [results] = await pool.execute(`
+           SELECT 
+    COUNT(DISTINCT m.id) AS total_members,
+    COALESCE(SUM(CASE WHEN a.attendance_status = 'present' THEN 1 ELSE 0 END), 0) AS present,
+    COALESCE(SUM(CASE WHEN a.attendance_status = 'late' THEN 1 ELSE 0 END), 0) AS late,
+    COUNT(DISTINCT m.id) - 
+    COALESCE(SUM(CASE WHEN a.attendance_status = 'present' THEN 1 ELSE 0 END), 0) -
+    COALESCE(SUM(CASE WHEN a.attendance_status = 'late' THEN 1 ELSE 0 END), 0) AS absent
+FROM members m
+LEFT JOIN meeting_attendance a 
+  ON m.id = a.member_id AND a.meeting_id = ?
+WHERE m.chama_id = ?
+  AND m.status = 'active'
+  AND m.is_active = 1;
+        `, [meetingId, chamaId]);
+
+        return results[0]; // returns { present: x, absent: y, late: z }
+    } catch (error) {
+        throw error;
+    }
+}
+
+
+
+
+
     static async findById(id) {
         try {
             const [attendance] = await pool.execute(`
