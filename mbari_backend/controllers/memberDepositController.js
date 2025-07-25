@@ -1,4 +1,4 @@
-const { MemberDeposit } = require('../models/financialModels');
+const { MemberDeposit } = require('../models/FinancialModels');
 
 const memberDepositController = {
     async getAll(req, res) {

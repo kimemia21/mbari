@@ -1,4 +1,4 @@
-const { MemberDeposit, Contribution } = require('../models/financialModels');
+const { MemberDeposit, Contribution } = require('../models/FinancialModels');
 const { Meeting } = require('../models/Meeting');
 const Member = require('../models/Member');
 const jwt = require('jsonwebtoken');

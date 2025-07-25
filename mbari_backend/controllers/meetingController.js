@@ -1,4 +1,4 @@
-const { Contribution, MeetingFee } = require('../models/financialModels');
+const { Contribution, MeetingFee, Fine } = require('../models/FinancialModels');
 const { Meeting, MeetingAttendance, MeetingFinancials } = require('../models/Meeting');
 
 // Meeting Controller
@@ -260,43 +260,95 @@ static async getMeetingForToday(req, res) {
 
 
 
-     static async getMeetingStatsAdmin(req, res) {
-        try {
-            const chamaId = req.user.chama_id;
-            const meetingId = req.body.meetingId; // Assuming meetingId is passed in the request body
+   static async getMeetingStatsAdmin(req, res) {
+    try {
+        const { chama_id: chamaId } = req.user;
+        const { meetingId } = req.body;
 
-            if (!meetingId) {
-                return res.status(400).json({   
-                    success: false,
-                    message: 'Meeting ID is required'
-                });
-            }
-    //  cash in hand for the meeting
-            const meetings = await Meeting.getMoneyInHand(chamaId, meetingId);
-// attendance stats for the meeting 
-            const attendance = await MeetingAttendance.getAttendanceStatsByMeeting(meetingId,chamaId);
-            // contribution stats for the meeting 
-            const contributions = await Contribution.findByMeetingIdAdmin(meetingId,chamaId);
-
-            
-
-
-
-            
-            res.json({
-                success: true,
-                data: {meetings, attendance,contributions},
-                message: 'Completed meetings retrieved successfully'
-            });
-        } catch (error) {
-            res.status(500).json({
+        // Early validation
+        if (!meetingId) {
+            return res.status(400).json({
                 success: false,
-                message: 'Error retrieving completed meetings',
-                error: error.message
+                message: 'Meeting ID is required'
             });
         }
+
+        // Execute all database queries in parallel for better performance
+        const [
+            moneyAtHand,
+            attendance,
+            contributions,
+            meetingFees,
+            fines
+        ] = await Promise.all([
+            Meeting.getMoneyInHand(chamaId, meetingId),
+            MeetingAttendance.getAttendanceStatsByMeeting(meetingId, chamaId),
+            Contribution.findByMeetingIdAdmin(meetingId, chamaId),
+            MeetingFee.findByMeetingIdAdmin(meetingId, chamaId),
+            Fine.findByMeetingIdAdmin(meetingId, chamaId)
+        ]);
+
+        // Calculate total collected amount from all sources
+        const totalCollected = MeetingController.calculateTotalCollected({
+            contributions,
+            meetingFees,
+            fines,
+            moneyAtHand
+        });
+
+        // Structure response data
+        const responseData = {
+            moneyAtHand,
+            attendance,
+            contributions,
+            meetingFees,
+            fines,
+            totalCollected
+        };
+
+        res.json({
+            success: true,
+            data: responseData,
+            message: 'Meeting statistics retrieved successfully'
+        });
+
+    } catch (error) {
+        console.error('Error in getMeetingStatsAdmin:', error);
+        
+        res.status(500).json({
+            success: false,
+            message: 'Error retrieving meeting statistics',
+            error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+        });
+    }
+}
+
+// Helper function to calculate total collected amount
+static calculateTotalCollected({ contributions, meetingFees, fines, moneyAtHand }) {
+    let total = 0;
+
+    // Add contributions amount
+    if (contributions?.data?.collected_contributions) {
+        total += parseFloat(contributions.data.collected_contributions) || 0;
     }
 
+    // Add meeting fees
+    if (meetingFees?.total_collected) {
+        total += parseFloat(meetingFees.total_collected) || 0;
+    }
+
+    // Add fines paid amount
+    if (fines?.fines_paid_amount) {
+        total += parseFloat(fines.fines_paid_amount) || 0;
+    }
+
+    // Add money at hand (if it represents additional funds)
+    if (moneyAtHand) {
+        total += parseFloat(moneyAtHand) || 0;
+    }
+
+    return total.toFixed(2);
+}
 
 
 

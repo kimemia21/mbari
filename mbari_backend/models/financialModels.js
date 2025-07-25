@@ -366,6 +366,50 @@ class MeetingFee {
         }
     }
 
+
+static async findByMeetingIdAdmin(meetingId, chamaId) {
+    try {
+        const [result] = await pool.execute(`
+            SELECT
+              (
+                SELECT SUM(mf.amount)
+                FROM meeting_fees mf
+                WHERE mf.meeting_id = ?
+                  AND mf.member_id IN (
+                    SELECT a.member_id
+                    FROM meeting_attendance a
+                    WHERE a.meeting_id = ?
+                      AND a.attendance_status IN ('present', 'late')
+                  )
+              ) AS total_collected,
+
+              (
+                SELECT COUNT(*)
+                FROM meeting_attendance a
+                WHERE a.meeting_id = ?
+                  AND a.attendance_status IN ('present', 'late')
+              ) AS expected_count,
+
+              (
+                SELECT c.meeting_fee
+                FROM chamas c
+                WHERE c.id = ?
+              ) AS meeting_fee;
+        `, [meetingId, meetingId, meetingId, chamaId]);
+
+        const { total_collected = 0, expected_count = 0, meeting_fee = 0 } = result[0];
+
+        return {
+            total_collected: parseFloat(total_collected) || 0,
+            expected_count,
+            expected_amount: parseFloat(meeting_fee) * expected_count,
+        };
+    } catch (error) {
+        throw error;
+    }
+}
+
+
  static async create(feeData) {
     console.log("feeData", feeData);
 
@@ -495,20 +539,40 @@ class Fine {
         }
     }
 
-    static async findByMeetingId(meetingId) {
-        try {
-            const [fines] = await pool.execute(`
-                SELECT f.*, m.name as member_name, p.name as payment_method
-                FROM fines f
-                LEFT JOIN members m ON f.member_id = m.id
-                LEFT JOIN payment_types p ON f.payment_method_id = p.id
-                WHERE f.meeting_id = ?
-            `, [meetingId]);
-            return fines;
-        } catch (error) {
-            throw error;
-        }
+static async findByMeetingIdAdmin(meetingId) {
+    try {
+        const [result] = await pool.execute(`
+            SELECT
+                COUNT(*) AS total_fines,
+                SUM(amount) AS total_fines_amount,
+
+                SUM(CASE WHEN status = 'paid' THEN 1 ELSE 0 END) AS fines_paid_count,
+                SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) AS fines_paid_amount
+            FROM fines
+            WHERE meeting_id = ?
+        `, [meetingId]);
+
+        const {
+            total_fines = 0,
+            total_fines_amount = 0,
+            fines_paid_count = 0,
+            fines_paid_amount = 0
+        } = result[0];
+
+        const unpaid_fines_count = total_fines - fines_paid_count;
+
+        return {
+            total_fines,
+            total_fines_amount: parseFloat(total_fines_amount) || 0,
+            fines_paid_count,
+            fines_paid_amount: parseFloat(fines_paid_amount) || 0,
+            unpaid_fines_count
+        };
+    } catch (error) {
+        throw error;
     }
+}
+
 
     static async create(fineData) {
         try {

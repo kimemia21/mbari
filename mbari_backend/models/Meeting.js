@@ -1,5 +1,5 @@
 const { pool } = require('../config/database');
-const { MeetingFee, Fine, Contribution } = require('./financialModels');
+const { MeetingFee, Fine, Contribution } = require('./FinancialModels');
 
 // Meeting Model
 class Meeting {

@@ -1,6 +1,6 @@
 
 // controllers/fineController.js
-const { Fine } = require('../models/financialModels');
+const { Fine } = require('../models/FinancialModels');
 
 const fineController = {
     async getAll(req, res) {
